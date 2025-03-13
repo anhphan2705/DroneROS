@@ -1,0 +1,1 @@
+/home/anhphan/BaseROS/ros2_ws/build/msgs/rosidl_typesupport_fastrtps_cpp/msgs/msg/detail/autofocus_status__rosidl_typesupport_fastrtps_cpp.hpp

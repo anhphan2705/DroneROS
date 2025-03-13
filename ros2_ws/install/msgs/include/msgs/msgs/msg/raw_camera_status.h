@@ -1,0 +1,1 @@
+/home/anhphan/BaseROS/ros2_ws/build/msgs/rosidl_generator_c/msgs/msg/raw_camera_status.h

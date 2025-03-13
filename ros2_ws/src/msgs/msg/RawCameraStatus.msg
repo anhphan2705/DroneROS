@@ -1,0 +1,4 @@
+int32 framerate
+int32 image_width
+int32 image_height
+int32 flip_method
