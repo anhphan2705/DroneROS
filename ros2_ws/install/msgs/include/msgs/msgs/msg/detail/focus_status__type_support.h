@@ -1,1 +1,0 @@
-/home/anhphan/BaseROS/ros2_ws/build/msgs/rosidl_generator_c/msgs/msg/detail/focus_status__type_support.h

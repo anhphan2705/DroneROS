@@ -1,1 +1,0 @@
-/home/anhphan/BaseROS/ros2_ws/build/msgs/rosidl_generator_cpp/msgs/msg/detail/autofocus_status__builder.hpp

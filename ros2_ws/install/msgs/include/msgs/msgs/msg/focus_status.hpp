@@ -1,1 +1,0 @@
-/home/anhphan/BaseROS/ros2_ws/build/msgs/rosidl_generator_cpp/msgs/msg/focus_status.hpp

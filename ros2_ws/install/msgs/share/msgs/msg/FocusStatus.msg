@@ -1,1 +1,0 @@
-/home/anhphan/BaseROS/ros2_ws/src/msgs/msg/FocusStatus.msg

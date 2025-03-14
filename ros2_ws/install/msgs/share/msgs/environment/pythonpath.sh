@@ -1,1 +1,0 @@
-/home/anhphan/BaseROS/ros2_ws/build/msgs/ament_cmake_environment_hooks/pythonpath.sh
