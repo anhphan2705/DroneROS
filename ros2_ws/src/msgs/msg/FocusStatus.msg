@@ -1,0 +1,2 @@
+int32 focus_value
+float32 reapply_interval
