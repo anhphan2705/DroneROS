@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/perception/launch', ['launch/camera_launch.py']), 
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,6 +24,7 @@ setup(
             'camera_node = perception.camera_node:main',
             'autofocus_node = perception.autofocus_node:main',
             'manual_focus_node = perception.manual_focus_node:main',
+            'camera_splitter_node = perception.camera_splitter_node:main',
         ],
     },
 )
