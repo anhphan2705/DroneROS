@@ -5,13 +5,19 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
+# Generate message and service interfaces
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RawCameraStatus.msg"
   "msg/FocusStatus.msg"
+  "srv/CameraCalibrationRequest.srv"
+  DEPENDENCIES std_msgs sensor_msgs std_srvs
 )
 
 if(BUILD_TESTING)
@@ -25,5 +31,7 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()
