@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+import os
 
 package_name = 'perception'
 
@@ -10,6 +11,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), ['launch/camera_launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,7 +26,8 @@ setup(
             'autofocus_node = perception.autofocus_node:main',
             'manual_focus_node = perception.manual_focus_node:main',
             'camera_splitter_node = perception.camera_splitter_node:main',
-            'sync_capture_node = perception.sync_capture_node:main'
+            'sync_capture_node = perception.sync_capture_node:main',
+            'stereo_depth_node = perception.stereo_depth_node:main',
         ],
     },
 )

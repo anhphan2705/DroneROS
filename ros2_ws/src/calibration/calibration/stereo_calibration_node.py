@@ -11,7 +11,7 @@ import os
 import glob
 import numpy as np
 from datetime import datetime
-from tools.stereo_camera_calibration import StereoCalibrator
+from camera_tools.stereo_camera_calibration import StereoCalibrator
 
 
 class StereoCalibrationNode(Node):
