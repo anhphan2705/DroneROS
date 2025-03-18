@@ -33,14 +33,14 @@ class StereoDepthNode(Node):
 
         # Stereo Matching Parameters
         self.num_disparities = 128  # Number of disparities (must be multiple of 16)
-        self.block_size = 9        # Block size for matching
+        self.block_size = 9         # Block size for matching
+        self.stream = vpi.Stream()  # Create a reusable VPI stream
 
         self.get_logger().info("StereoDepthNode Initialized!")
-        
+
     def normalize_disparity_map(self, disparity_S16, max_disparity):
         """Normalize disparity map for visualization."""
-        disparity_u8 = disparity_S16.convert(vpi.Format.U8, scale=255.0 / (32 * max_disparity)).cpu()
-        return disparity_u8
+        return disparity_S16.convert(vpi.Format.U8, scale=255.0 / (32 * max_disparity)).cpu()
 
     def process_stereo(self, left_msg, right_msg, pair_id):
         """Process left and right images to generate depth map using VPI."""
@@ -52,13 +52,12 @@ class StereoDepthNode(Node):
             return
 
         # Convert images to VPI format with CUDA stream
-        stream = vpi.Stream()
-        with stream, vpi.Backend.CUDA:
+        with self.stream, vpi.Backend.CUDA:
             left_vpi = vpi.asimage(left_cv).convert(vpi.Format.Y16_ER)
             right_vpi = vpi.asimage(right_cv).convert(vpi.Format.Y16_ER)
 
         # Stereo Disparity Estimation with VPI
-        with stream, vpi.Backend.CUDA:
+        with self.stream, vpi.Backend.CUDA:
             disparity_vpi = vpi.stereodisp(
                 left=left_vpi,
                 right=right_vpi,
@@ -76,12 +75,11 @@ class StereoDepthNode(Node):
                 # includediagonals=True,
                 # numpasses=3,
             )
-            
+
             disparity_u8 = self.normalize_disparity_map(disparity_vpi, self.num_disparities)
 
         # Convert back to ROS Image and publish
-        disparity_np = np.array(disparity_u8)
-        depth_msg = self.br.cv2_to_imgmsg(disparity_np, encoding='mono8')
+        depth_msg = self.br.cv2_to_imgmsg(np.array(disparity_u8), encoding='mono8')
         depth_msg.header = left_msg.header
 
         if pair_id == 0:
@@ -92,7 +90,7 @@ class StereoDepthNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = StereoDepthNode()
-    
+
     # Use MultiThreadedExecutor
     executor = MultiThreadedExecutor()
     executor.add_node(node)
