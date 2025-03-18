@@ -3,8 +3,9 @@ import rclpy
 from rclpy.node import Node
 import glob
 import os
-import cv2
 import numpy as np
+import cv2
+import vpi
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from functools import partial
@@ -16,11 +17,10 @@ class RectificationNode(Node):
         super().__init__('camera_rectification_node')
         self.br = CvBridge()
         
-        # Define the absolute path to the calibration parameters directory
         package_share_dir = get_package_share_directory('calibration')
         self.calibration_dir = os.path.join(package_share_dir, "calibrated_params")
 
-        # Dictionaries to store calibration data
+        # Dictionaries to store VPI warp maps
         self.rectification_maps = {}
         self.calibrated_pairs = {0: False, 1: False}
 
@@ -31,7 +31,7 @@ class RectificationNode(Node):
         if not success0 and not success1:
             raise RuntimeError("No valid calibration data found for any stereo pair. Exiting.")
 
-        # Initialize image publishers
+        # Image publishers
         self.image_publishers = {}
 
         # Mapping of topics to stereo pairs
@@ -66,12 +66,13 @@ class RectificationNode(Node):
         latest_file = files[0]
         self.get_logger().info(f"Loading calibration file: {latest_file}")
 
+        # Read calibration parameters
         cv_file = cv2.FileStorage(latest_file, cv2.FILE_STORAGE_READ)
         if not cv_file.isOpened():
             self.get_logger().error(f"Failed to open calibration file: {latest_file}")
             return False
 
-        # Read camera matrices & distortion coefficients
+        # Read camera parameters
         frame_size = cv_file.getNode("frame_size").mat()
         camera_matrix_left = cv_file.getNode("camera_matrix_left").mat()
         dist_coeffs_left = cv_file.getNode("dist_coeffs_left").mat()
@@ -84,7 +85,6 @@ class RectificationNode(Node):
 
         cv_file.release()
 
-        # Validate calibration data
         if camera_matrix_left is None or camera_matrix_right is None:
             self.get_logger().warn(f"Calibration file {latest_file} is incomplete. Recalibration needed.")
             return False
@@ -100,22 +100,26 @@ class RectificationNode(Node):
             camera_matrix_right, dist_coeffs_right, rectification_matrix_right,
             projection_matrix_right, (width, height), cv2.CV_32FC1
         )
-
-        # Store rectification maps for fast access
-        self.rectification_maps[pair_id] = {
-            "left": (stereo_map_left_x, stereo_map_left_y),
-            "right": (stereo_map_right_x, stereo_map_right_y)
-        }
         
+        with vpi.Backend.PVA:
+            vpi_left_map = vpi.WarpMap(vpi.WarpGrid((width, height)))
+            vpi_right_map = vpi.WarpMap(vpi.WarpGrid((width, height)))
+
+            left_remap = vpi.asimage((stereo_map_left_x, stereo_map_left_y))
+            right_remap = vpi.asimage((stereo_map_right_x, stereo_map_right_y))
+
+        # Store rectification maps
+        self.rectification_maps[pair_id] = {
+            "left": (vpi_left_map, left_remap),
+            "right": (vpi_right_map, right_remap)
+        }
+
         self.calibrated_pairs[pair_id] = True
         self.get_logger().info(f"Applied calibration from {latest_file} for stereo pair {pair_id}.")
         return True
 
     def image_callback(self, msg, topic):
-        """
-        Callback for raw images. Determines which stereo pair and side the image belongs to,
-        applies the corresponding rectification maps, and publishes the rectified image.
-        """
+        """ Apply rectification using VPI Warp Remap. """
         pair_side = self.topic_to_pair.get(topic, None)
         if pair_side is None:
             self.get_logger().warn(f"Received image on unknown topic: {topic}")
@@ -132,16 +136,17 @@ class RectificationNode(Node):
         except CvBridgeError as e:
             self.get_logger().error(f"Error converting image: {e}")
             return
-        
-        # Convert to UMat for hardware acceleration
-        cv_image = cv2.UMat(cv_image)
 
-        # Retrieve the precomputed rectification maps
-        map_x, map_y = self.rectification_maps[pair_id][side]
+        # Convert to VPI Image
+        with vpi.Backend.CUDA:
+            vpi_image = vpi.asimage(cv_image)
+            warp_map, _ = self.rectification_maps[pair_id][side] 
 
-        # Apply rectification
-        rectified_image = cv2.remap(cv_image, map_x, map_y, interpolation=cv2.INTER_LINEAR).get()
-        # rectified_image = cv2.remap(cv_image, map_x, map_y, interpolation=cv2.INTER_NEAREST).get()
+            # Apply rectification using VPI
+            rectified_vpi = vpi_image.remap(warp_map)
+
+            # Convert back to numpy
+            rectified_image = rectified_vpi.cpu()
 
         # Convert rectified image back to ROS 2 Image message
         rect_msg = self.br.cv2_to_imgmsg(rectified_image, encoding='bgr8')
@@ -162,7 +167,7 @@ def main(args=None):
     try:
         executor.spin()
     except RuntimeError as e:
-        rclpy.get_logger("rectification_node").error(str(e))
+        rclpy.get_logger("camera_rectification_node").error(str(e))
     finally:
         rclpy.shutdown()
 
