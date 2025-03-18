@@ -32,48 +32,56 @@ class StereoDepthNode(Node):
         self.depth_publisher_1 = self.create_publisher(Image, '/camera/depth_map_1', 10)
 
         # Stereo Matching Parameters
-        self.num_disparities = 64  # Number of disparities (must be multiple of 16)
+        self.num_disparities = 128  # Number of disparities (must be multiple of 16)
         self.block_size = 9        # Block size for matching
 
         self.get_logger().info("StereoDepthNode Initialized!")
+        
+    def normalize_disparity_map(self, disparity_S16, max_disparity):
+        """Normalize disparity map for visualization."""
+        disparity_u8 = disparity_S16.convert(vpi.Format.U8, scale=255.0 / (32 * max_disparity)).cpu()
+        return disparity_u8
 
     def process_stereo(self, left_msg, right_msg, pair_id):
-        """Process left and right images to generate a disparity map using VPI."""
+        """Process left and right images to generate depth map using VPI."""
         try:
-            left_image = self.br.imgmsg_to_cv2(left_msg, desired_encoding='mono8')
-            right_image = self.br.imgmsg_to_cv2(right_msg, desired_encoding='mono8')
+            left_cv = self.br.imgmsg_to_cv2(left_msg, desired_encoding='mono8')
+            right_cv = self.br.imgmsg_to_cv2(right_msg, desired_encoding='mono8')
         except Exception as e:
             self.get_logger().error(f"Image conversion error: {e}")
             return
 
-        height, width = left_image.shape
+        # Convert images to VPI format with CUDA stream
+        stream = vpi.Stream()
+        with stream, vpi.Backend.CUDA:
+            left_vpi = vpi.asimage(left_cv).convert(vpi.Format.Y16_ER)
+            right_vpi = vpi.asimage(right_cv).convert(vpi.Format.Y16_ER)
 
-        # Convert to VPI Images
-        with vpi.Backend.CUDA:
-            vpi_left = vpi.asimage(left_image, vpi.Format.U8)
-            vpi_right = vpi.asimage(right_image, vpi.Format.U8)
-
-            # Ensure disparity image format is S16
-            disparity_vpi = vpi.Image((width, height), vpi.Format.S16)
-
-            # Run stereo disparity estimation
-            with vpi.Backend.CUDA:
-                with vpi.Stream() as stream:
-                    vpi.stereodisp(left=vpi_left, right=vpi_right, 
-                                maxdisp=self.num_disparities,
-                                window=self.block_size,
-                                backend=vpi.Backend.CUDA, 
-                                out=disparity_vpi)
-
-            # Convert disparity back to NumPy
-            disparity_np = disparity_vpi.cpu().astype(np.float32) / 16.0
+        # Stereo Disparity Estimation with VPI
+        with stream, vpi.Backend.CUDA:
+            disparity_vpi = vpi.stereodisp(
+                left=left_vpi,
+                right=right_vpi,
+                backend=vpi.Backend.CUDA,
+                maxdisp=self.num_disparities,      # Maximum disparity
+                window=self.block_size,        # Median filter window size
+                # confthreshold=32767,
+                # quality=6,       # High quality mode
+                # conftype=vpi.ConfidenceType.ABSOLUTE,
+                # mindisp=0,
+                # p1=3,
+                # p2=48,
+                # p2alpha=0,
+                # uniqueness=-1.0,
+                # includediagonals=True,
+                # numpasses=3,
+            )
             
-        # Normalize for visualization
-        disparity_visual = cv2.normalize(disparity_np, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        disparity_visual = disparity_visual.astype(np.uint8)
+            disparity_u8 = self.normalize_disparity_map(disparity_vpi, self.num_disparities)
 
         # Convert back to ROS Image and publish
-        depth_msg = self.br.cv2_to_imgmsg(disparity_visual, encoding='mono8')
+        disparity_np = np.array(disparity_u8)
+        depth_msg = self.br.cv2_to_imgmsg(disparity_np, encoding='mono8')
         depth_msg.header = left_msg.header
 
         if pair_id == 0:
