@@ -357,6 +357,8 @@ class StereoCalibrator:
         filename = os.path.join(output_dir, f"stereo_calibration_params_pair_{pair_id}_{current_time}.yml")
 
         cv_file = cv.FileStorage(filename, cv.FILE_STORAGE_WRITE)
+        # Write image details
+        cv_file.write('reprojection_stereo_error', self.frame_size)
         # Write performace parameters
         cv_file.write('reprojection_stereo_error', self.reprojection_stereo_error)
         cv_file.write('rectification_error_left', self.rectification_error_left)
@@ -416,7 +418,7 @@ def main():
     #     verbose=True,
     #     use_buffer=False
     # )
-    # calibrator.run_calibration()
+    # calibrator.run_calibration(pair_id=0)
     pass
 
 
