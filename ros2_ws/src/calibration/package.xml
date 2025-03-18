@@ -17,6 +17,7 @@
   <exec_depend>numpy</exec_depend>
   <exec_depend>PyYAML</exec_depend>
   <exec_depend>message_filters</exec_depend>
+  <exec_depend>opencv-python</exec_depend>
 
   <!-- Testing dependencies -->
   <test_depend>ament_copyright</test_depend>
@@ -26,5 +27,8 @@
 
   <export>
     <build_type>ament_python</build_type>
+    <launch>
+      <launch_file>launch/calibration_launch.py</launch_file>
+    </launch>
   </export>
 </package>

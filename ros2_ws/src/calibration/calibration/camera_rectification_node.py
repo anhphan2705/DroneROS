@@ -13,7 +13,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 class RectificationNode(Node):
     def __init__(self):
-        super().__init__('rectification_node')
+        super().__init__('camera_rectification_node')
         self.br = CvBridge()
         
         # Define the absolute path to the calibration parameters directory
