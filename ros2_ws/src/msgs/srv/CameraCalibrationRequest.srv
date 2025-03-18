@@ -1,4 +1,4 @@
-int32 pair_id  # 1 = split_0 & split_1, 2 = split_2 & split_3
+int32 pair_id
 ---
 bool success
 string message

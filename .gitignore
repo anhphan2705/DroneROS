@@ -180,3 +180,4 @@ ros2_ws/log/*
 build/*
 install/*
 log/*
+ros2_ws/image_captured/*

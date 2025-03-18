@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>perception</name>
-  <version>0.0.0</version>
+  <version>0.0.1</version>
   <description>Manage all perception devices in the RP-1 Base Station</description>
   <maintainer email="anhphanvt2705@gmail.com">anhphan</maintainer>
   <license>Private</license>

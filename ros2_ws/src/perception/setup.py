@@ -25,6 +25,7 @@ setup(
             'autofocus_node = perception.autofocus_node:main',
             'manual_focus_node = perception.manual_focus_node:main',
             'camera_splitter_node = perception.camera_splitter_node:main',
+            'sync_capture_node = perception.sync_capture_node:main'
         ],
     },
 )

@@ -43,7 +43,7 @@ class CameraSplitterNode(Node):
             ]
 
             for i in range(4):
-                self.publish_image(i, quadrants[i])
+                self.publish_image(i, quadrants[i], msg.header)
 
             # Publish FPS and size data every 30 seconds
             if time.time() - self.last_fps_publish_time >= 30:
@@ -53,8 +53,10 @@ class CameraSplitterNode(Node):
         except Exception as e:
             self.get_logger().error(f'Error processing image: {e}')
 
-    def publish_image(self, index, quadrant):
+    def publish_image(self, index, quadrant, header):
         image_msg = self.bridge.cv2_to_imgmsg(quadrant, encoding='bgr8')
+        image_msg.header = header
+        image_msg.header.frame_id = f"split_{index}"
         self.image_publishers[index].publish(image_msg)
 
         current_time = time.time()

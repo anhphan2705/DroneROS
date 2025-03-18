@@ -17,6 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RawCameraStatus.msg"
   "msg/FocusStatus.msg"
   "srv/CameraCalibrationRequest.srv"
+  "srv/CaptureImageRequest.srv"
   DEPENDENCIES std_msgs sensor_msgs std_srvs
 )
 
