@@ -388,7 +388,7 @@ class StereoCalibrator:
         if self.verbose:
             print(f"All parameters saved in {filename}")
 
-    def run_calibration(self):
+    def run_calibration(self, pair_id=0):
         """
         Run the entire calibration pipeline.
         """
@@ -402,18 +402,20 @@ class StereoCalibrator:
         self.calibrate_cameras()
         self.stereo_calibrate()
         self.stereo_rectify()
-        self.save_parameters()
-
+        self.save_parameters(output_base_dir="calibrated_params", pair_id=pair_id)
 
 def main():
-    # left_dir = 'images/stereo_left'
-    # right_dir = 'images/stereo_right'
-    # calibrator = StereoCalibrator(left_images_dir=left_dir, 
-    #                               right_images_dir=right_dir,
-    #                               chessboard_size=(10, 7),
-    #                               square_size=25,
-    #                               show_corners=True,
-    #                               verbose=True)
+    # left_dir = 'camera0'
+    # right_dir = 'camera1'
+    # calibrator = StereoCalibrator(
+    #     left_images_dir=left_dir, 
+    #     right_images_dir=right_dir,
+    #     chessboard_size=(10, 7),
+    #     square_size=25,
+    #     show_corners=True,
+    #     verbose=True,
+    #     use_buffer=False
+    # )
     # calibrator.run_calibration()
     pass
 

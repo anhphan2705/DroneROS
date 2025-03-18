@@ -7,14 +7,18 @@
   <maintainer email="anhphanvt2705@gmail.com">anhphan</maintainer>
   <license>Private</license>
 
+  <!-- Build tool dependency for Python packages -->
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <depend>rclpy</depend>
-  <depend>sensor_msgs</depend>
-  <depend>cv_bridge</depend>
-  <depend>numpy</depend>
-  <depend>PyYAML</depend>
+  <!-- Runtime dependencies -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>numpy</exec_depend>
+  <exec_depend>PyYAML</exec_depend>
+  <exec_depend>message_filters</exec_depend>
 
+  <!-- Testing dependencies -->
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

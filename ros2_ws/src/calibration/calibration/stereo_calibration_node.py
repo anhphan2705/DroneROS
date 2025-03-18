@@ -142,14 +142,20 @@ class StereoCalibrationNode(Node):
 
     def apply_latest_calibration(self, pair_id):
         """ Loads and applies the latest calibration file if available. """
-        files = sorted(glob.glob(f"{self.calibration_dir}/stereo_calibration_params_pair_{pair_id}_*.yml"), reverse=True)
-        
+        search_pattern = os.path.join(self.calibration_dir, f"stereo_calibration_params_pair_{pair_id}_*.yml")
+        files = sorted(glob.glob(search_pattern), reverse=True)
+
         if not files:
             self.get_logger().warn(f"No calibration file found for stereo pair {pair_id}. Please recalibrate.")
             return False
         
         latest_file = files[0]
+        self.get_logger().info(f"Loading calibration file: {latest_file}")
+
         cv_file = cv2.FileStorage(latest_file, cv2.FILE_STORAGE_READ)
+        if not cv_file.isOpened():
+            self.get_logger().error(f"Failed to open calibration file: {latest_file}")
+            return False
 
         # Read parameters
         self.camera_matrix_left = cv_file.getNode("camera_matrix_left").mat()
