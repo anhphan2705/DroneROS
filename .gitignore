@@ -181,3 +181,4 @@ build/*
 install/*
 log/*
 ros2_ws/image_captured/*
+ros2_ws/src/perception/resource/*

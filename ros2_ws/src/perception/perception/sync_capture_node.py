@@ -145,3 +145,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+    
+    
+# How to use it: ros2 service call /capture_sync_image msgs/srv/CaptureImageRequest "{camera_ids: ['camera0', 'camera2']}"

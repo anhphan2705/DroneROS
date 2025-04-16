@@ -16,6 +16,8 @@ find_package(std_srvs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RawCameraStatus.msg"
   "msg/FocusStatus.msg"
+  "msg/BoundingBox.msg"
+  "msg/BoundingBoxes.msg"
   "srv/CameraCalibrationRequest.srv"
   "srv/CaptureImageRequest.srv"
   DEPENDENCIES std_msgs sensor_msgs std_srvs

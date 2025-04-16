@@ -1,7 +1,9 @@
 from setuptools import find_packages, setup
 import os
+import glob
 
 package_name = 'perception'
+model_files = glob.glob('resource/models/*')
 
 setup(
     name=package_name,
@@ -11,9 +13,13 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), ['launch/camera_launch.py']),
+        (os.path.join('share', package_name, 'launch'), [
+            'launch/camera_launch.py',
+            'launch/visualizer_launch.py',
+        ]),
+        (os.path.join('share', package_name, 'models'), model_files),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'rosidl_runtime_py'],
     zip_safe=True,
     maintainer='anhphan',
     maintainer_email='anhphanvt2705@gmail.com',
@@ -28,6 +34,8 @@ setup(
             'camera_splitter_node = perception.camera_splitter_node:main',
             'sync_capture_node = perception.sync_capture_node:main',
             'stereo_depth_node = perception.stereo_depth_node:main',
+            'object_detection_node = perception.object_detection_node:main',
+            'bbox_overlay_node = perception.bbox_overlay_node:main',
         ],
     },
 )

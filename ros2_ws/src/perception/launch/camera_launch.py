@@ -49,6 +49,30 @@ def generate_launch_description():
         output='screen'
     )
 
+    yolov8_detection_0 = launch_ros.actions.Node(
+        package='perception',
+        executable='object_detection_node',
+        name='yolo_detection_0',
+        output='screen',
+        parameters=[
+            {'model_path': 'yolov8m_200e.pt'},
+            {'image_topic': '/camera/rectified/split_0'},
+            {'detection_topic': '/yolo/detections_0'}
+        ]
+    )
+
+    # yolov8_detection_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='object_detection_node',
+    #     name='yolo_detection_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'model_path': 'best.pt'},
+    #         {'image_topic': '/camera/rectified/split_2'},
+    #         {'detection_topic': '/yolo/detections_1'}
+    #     ]
+    # )
+
     return launch.LaunchDescription([
         camera_node,
         camera_splitter_node,
@@ -56,4 +80,6 @@ def generate_launch_description():
         sync_capture_node,
         camera_rectification_node,
         stereo_depth_node,
+        yolov8_detection_0,
+        # yolov8_detection_1,
     ])
