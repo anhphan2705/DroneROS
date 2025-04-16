@@ -4,6 +4,7 @@ from rclpy.node import Node
 import numpy as np
 import cv2
 import vpi
+import math
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from message_filters import ApproximateTimeSynchronizer, Subscriber
@@ -35,6 +36,10 @@ class StereoDepthNode(Node):
         self.num_disparities = 128  # Number of disparities (must be multiple of 16)
         self.block_size = 9         # Block size for matching
         self.stream = vpi.Stream()  # Create a reusable VPI stream
+        
+        # Camera spec: horizontal FOV (degrees) and baseline (in meters)
+        self.horizontal_fov_deg = 75.0
+        self.baseline_m = 0.05  # 50 mm
 
         self.get_logger().info("StereoDepthNode Initialized!")
 
@@ -51,6 +56,10 @@ class StereoDepthNode(Node):
             self.get_logger().error(f"Image conversion error: {e}")
             return
 
+        # Compute effective focal length in pixels from image width and FOV:
+        image_width = left_cv.shape[1]  # assuming left and right images have same width
+        focal_length_px = (image_width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
+        
         # Convert images to VPI format with CUDA stream
         with self.stream, vpi.Backend.CUDA:
             left_vpi = vpi.asimage(left_cv).convert(vpi.Format.Y16_ER)
@@ -76,10 +85,24 @@ class StereoDepthNode(Node):
                 # numpasses=3,
             )
 
-            disparity_u8 = self.normalize_disparity_map(disparity_vpi, self.num_disparities)
+            disparity_float = disparity_vpi.convert(vpi.Format.F32).cpu() / 32.0
 
-        # Convert back to ROS Image and publish
-        depth_msg = self.br.cv2_to_imgmsg(np.array(disparity_u8), encoding='mono8')
+        # self.get_logger().info(
+        #     f"Disparity stats: min={np.min(disparity_float):.2f}, max={np.max(disparity_float):.2f}, mean={np.mean(disparity_float):.2f}"
+        # )
+
+        # Allocate depth map array with the same shape as the disparity image
+        valid = disparity_float > 0
+        depth_map = np.zeros_like(disparity_float, dtype=np.float32)
+        depth_map[valid] = (focal_length_px * self.baseline_m) / disparity_float[valid]
+        
+        # if np.any(valid):
+        #     self.get_logger().info(
+        #         f"Depth stats: min={np.min(depth_map[valid]):.2f}, max={np.max(depth_map[valid]):.2f}, mean={np.mean(depth_map[valid]):.2f}"
+        #     )
+
+        # Convert the computed depth map into a ROS Image message.
+        depth_msg = self.br.cv2_to_imgmsg(depth_map, encoding='32FC1')
         depth_msg.header = left_msg.header
 
         if pair_id == 0:

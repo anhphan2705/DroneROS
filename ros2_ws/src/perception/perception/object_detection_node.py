@@ -42,7 +42,7 @@ class YOLOv8InferenceNode(Node):
 
         # Load model based on extension
         if self.model_type == '.pt':
-            self.device = '0' if torch.cuda.is_available() else 'cpu'
+            self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
             self.model = YOLO(self.model_path).to(self.device)
             if not hasattr(self.model, 'predict'):
                 self.get_logger().error("YOLOv8 PyTorch model failed to load")
