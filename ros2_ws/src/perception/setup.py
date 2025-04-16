@@ -37,6 +37,7 @@ setup(
             'object_detection_node = perception.object_detection_node:main',
             'bbox_overlay_node = perception.bbox_overlay_node:main',
             'depth_visualizer_node = perception.depth_visualizer_node:main',
+            'object_depth_fusion_node = perception.object_depth_fusion_node:main',
         ],
     },
 )

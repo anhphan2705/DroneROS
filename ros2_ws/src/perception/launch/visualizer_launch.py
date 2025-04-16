@@ -10,7 +10,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_0'},
-            {'detection_topic': '/yolo/detections_0'},
+            {'detection_topic': '/yolo/detections_0/depth'},
             {'output_topic': '/camera/yolo_overlay_0'}
         ]
     )
@@ -22,7 +22,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_2'},
-            {'detection_topic': '/yolo/detections_1'},
+            {'detection_topic': '/yolo/detections_1/depth'},
             {'output_topic': '/camera/yolo_overlay_1'}
         ]
     )

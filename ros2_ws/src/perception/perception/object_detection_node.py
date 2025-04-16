@@ -122,6 +122,7 @@ class YOLOv8InferenceNode(Node):
                 det.y_min = y1
                 det.x_max = x2
                 det.y_max = y2
+                det.depth = -1.0
                 boxes_msg.boxes.append(det)
 
         elif self.model_type == '.onnx':
@@ -138,6 +139,7 @@ class YOLOv8InferenceNode(Node):
                 det.y_min = y1
                 det.x_max = x2
                 det.y_max = y2
+                det.depth = -1.0
                 boxes_msg.boxes.append(det)
         
         self.get_logger().info(f"[{len(boxes_msg.boxes)}] detections at t={msg.header.stamp.sec}.{msg.header.stamp.nanosec}")

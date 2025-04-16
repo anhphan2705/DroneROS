@@ -14,7 +14,6 @@ class BBoxOverlayNode(Node):
     def __init__(self):
         super().__init__('bbox_overlay_node')
 
-        # Declare and load parameters
         self.declare_parameter('image_topic', '/camera/rectified/split_0')
         self.declare_parameter('detection_topic', '/yolo/detections_0')
         self.declare_parameter('output_topic', '/camera/yolo_overlay')
@@ -23,20 +22,17 @@ class BBoxOverlayNode(Node):
         detection_topic = self.get_parameter('detection_topic').get_parameter_value().string_value
         output_topic = self.get_parameter('output_topic').get_parameter_value().string_value
 
-        # Bridge for converting ROS <-> OpenCV images
         self.bridge = CvBridge()
 
-        # Subscribers with time synchronization
         self.image_sub = Subscriber(self, Image, image_topic)
         self.detection_sub = Subscriber(self, BoundingBoxes, detection_topic)
 
         self.ts = ApproximateTimeSynchronizer([self.image_sub, self.detection_sub], queue_size=10, slop=0.5)
         self.ts.registerCallback(self.callback)
 
-        # Publisher for overlayed image
         self.image_pub = self.create_publisher(Image, output_topic, 10)
 
-        self.get_logger().info("BBoxOverlayNode started!")
+        self.get_logger().info("BBoxOverlayNode with ID and depth annotation started!")
 
     def callback(self, img_msg: Image, boxes_msg: BoundingBoxes):
         try:
@@ -47,13 +43,17 @@ class BBoxOverlayNode(Node):
 
         for box in boxes_msg.boxes:
             x1, y1, x2, y2 = box.x_min, box.y_min, box.x_max, box.y_max
-            label = f'{box.class_name} {box.confidence:.2f}'
+
+            label = f'ID: {box.id} | {box.class_name} {box.confidence:.2f}'
+
+            # Append depth if available
+            if hasattr(box, 'depth') and box.depth > 0:
+                label += f' ({box.depth:.2f}m)'
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
 
-        # Convert and publish
         self.get_logger().info(f"Overlaying {len(boxes_msg.boxes)} boxes on image")
         overlay_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
         overlay_msg.header = img_msg.header
