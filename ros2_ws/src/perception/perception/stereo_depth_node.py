@@ -33,8 +33,12 @@ class StereoDepthNode(Node):
         self.depth_publisher_1 = self.create_publisher(Image, '/camera/depth_map_1', 10)
 
         # Stereo Matching Parameters
-        self.num_disparities = 128  # Number of disparities (must be multiple of 16)
-        self.block_size = 9         # Block size for matching
+        self.num_disparities = 64  # Number of disparities (must be multiple of 16)
+        self.block_size = 3         # Block size for matching (1, 3, 5, or 7)
+        # self.num_pass = 1
+        # self.quality = 1
+        self.uniqueness = -1.0
+        self.includediagonals = False
         self.stream = vpi.Stream()  # Create a reusable VPI stream
         
         # Camera spec: horizontal FOV (degrees) and baseline (in meters)
@@ -74,15 +78,15 @@ class StereoDepthNode(Node):
                 maxdisp=self.num_disparities,      # Maximum disparity
                 window=self.block_size,        # Median filter window size
                 # confthreshold=32767,
-                # quality=6,       # High quality mode
+                # quality=self.quality,
                 # conftype=vpi.ConfidenceType.ABSOLUTE,
                 # mindisp=0,
                 # p1=3,
                 # p2=48,
                 # p2alpha=0,
-                # uniqueness=-1.0,
-                # includediagonals=True,
-                # numpasses=3,
+                uniqueness=self.uniqueness,
+                includediagonals=self.includediagonals,
+                # numpasses=self.num_pass,
             )
 
             disparity_float = disparity_vpi.convert(vpi.Format.F32).cpu() / 64
