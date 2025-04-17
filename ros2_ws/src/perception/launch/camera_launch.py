@@ -55,7 +55,7 @@ def generate_launch_description():
         name='yolo_detection_0',
         output='screen',
         parameters=[
-            {'model_path': 'yolov8s.pt'},
+            {'model_path': 'yolov8n.pt'},
             {'image_topic': '/camera/rectified/split_0'},
             {'detection_topic': '/yolo/detections_0'}
         ]
