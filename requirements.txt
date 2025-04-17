@@ -19,4 +19,4 @@ std_msgs==4.2.4
 torch==2.3.0
 ultralytics==8.3.108
 vpi==0.1.4
-cv2==opencv-contrib
+opencv-contrib-python==4.6.0
