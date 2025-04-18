@@ -37,7 +37,7 @@ class ByteTrackNode(Node):
 
     def detection_callback(self, msg: BoundingBoxes):
         detections = []
-        box_info = []
+        class_map = {}
 
         # Estimate image size from boxes (optional, only if not fixed)
         for box in msg.boxes:
@@ -45,9 +45,10 @@ class ByteTrackNode(Node):
             conf = box.confidence
             class_name = box.class_name
             class_id = box.class_id
+            depth = box.depth
 
-            detections.append([x1, y1, x2, y2, conf, class_id])
-            box_info.append((box.id, class_name, class_id))
+            detections.append([x1, y1, x2, y2, conf, class_id, depth])
+            class_map[class_id] = class_name
 
             # Update image shape dynamically from box coordinates
             self.image_shape = (
@@ -77,22 +78,20 @@ class ByteTrackNode(Node):
         for track in outputs:
             tlbr = track.tlbr
             track_id = track.track_id
-            class_id = track.class_id
-
-            class_lookup = {cid: (det_id, name) for det_id, name, cid in box_info}
-            matched_id, matched_name = class_lookup.get(class_id, (-1, "unknown"))
+            class_id = int(track.class_id)
+            class_name = class_map.get(class_id, "unknown") 
 
             tracked_box = TrackedBoundingBox()
-            tracked_box.id = int(matched_id)
+            tracked_box.id = int(track_id)
             tracked_box.track_id = int(track_id)
             tracked_box.class_id = int(class_id)
-            tracked_box.class_name = str(matched_name)
+            tracked_box.class_name = str(class_name)
             tracked_box.confidence = float(track.score)
             tracked_box.x_min = int(tlbr[0])
             tracked_box.y_min = int(tlbr[1])
             tracked_box.x_max = int(tlbr[2])
             tracked_box.y_max = int(tlbr[3])
-            tracked_box.depth = -1.0  # placeholder until depth fused
+            tracked_box.depth = float(track.depth)
 
             out_msg.boxes.append(tracked_box)
 

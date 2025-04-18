@@ -97,29 +97,53 @@ def generate_launch_description():
         ]
     )
     
-    overlay_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='bbox_overlay_node',
-        name='bbox_overlay_0',
-        output='screen',
-        parameters=[
-            {'image_topic': '/camera/rectified/split_0'},
-            {'detection_topic': '/yolo/detections_0/depth'},
-            {'output_topic': '/camera/yolo_overlay_0'}
-        ]
-    )
+    # overlay_0 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='bbox_overlay_node',
+    #     name='bbox_overlay_0',
+    #     output='screen',
+    #     parameters=[
+    #         {'image_topic': '/camera/rectified/split_0'},
+    #         {'detection_topic': '/yolo/detections_0/depth'},
+    #         {'output_topic': '/camera/yolo_overlay_0'}
+    #     ]
+    # )
 
-    overlay_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='bbox_overlay_node',
-        name='bbox_overlay_1',
-        output='screen',
-        parameters=[
-            {'image_topic': '/camera/rectified/split_2'},
-            {'detection_topic': '/yolo/detections_1/depth'},
-            {'output_topic': '/camera/yolo_overlay_1'}
-        ]
-    )
+    # overlay_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='bbox_overlay_node',
+    #     name='bbox_overlay_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'image_topic': '/camera/rectified/split_2'},
+    #         {'detection_topic': '/yolo/detections_1/depth'},
+    #         {'output_topic': '/camera/yolo_overlay_1'}
+    #     ]
+    # )
+
+    # object_depth_fusion_tracked_node_0 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='object_depth_fusion_tracked_node',
+    #     name='object_depth_fusion_tracked_node_0',
+    #     output='screen',
+    #     parameters=[
+    #         {'detection_topic': '/yolo/detections_0'},
+    #         {'depth_topic': '/camera/depth_map_0'},
+    #         {'output_topic': '/yolo/detections_0/depth'}
+    #     ]
+    # )
+
+    # object_depth_fusion_tracked_node_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='object_depth_fusion_tracked_node',
+    #     name='object_depth_fusion_tracked_node_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'detection_topic': '/yolo/detections_1'},
+    #         {'depth_topic': '/camera/depth_map_1'},
+    #         {'output_topic': '/yolo/detections_1/depth'}
+    #     ]
+    # )
     
     byte_track_node_0 = launch_ros.actions.Node(
         package='perception',
@@ -127,8 +151,8 @@ def generate_launch_description():
         name='byte_track_node_0',
         output='screen',
         parameters=[
-            {'input_topic': '/yolo/detections_0'},
-            {'output_topic': '/yolo/tracked_detections_0'}
+            {'input_topic': '/yolo/detections_0/depth'},
+            {'output_topic': '/yolo/detections_0/depth/tracked'}
         ]
     )
     
@@ -138,32 +162,8 @@ def generate_launch_description():
         name='byte_track_node_1',
         output='screen',
         parameters=[
-            {'input_topic': '/yolo/detections_1'},
-            {'output_topic': '/yolo/tracked_detections_1'}
-        ]
-    )
-
-    object_depth_fusion_tracked_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='object_depth_fusion_tracked_node',
-        name='object_depth_fusion_tracked_node_0',
-        output='screen',
-        parameters=[
-            {'detection_topic': '/yolo/tracked_detections_0'},
-            {'depth_topic': '/camera/depth_map_0'},
-            {'output_topic': '/yolo/tracked_detections_0/depth'}
-        ]
-    )
-
-    object_depth_fusion_tracked_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='object_depth_fusion_tracked_node',
-        name='object_depth_fusion_tracked_node_1',
-        output='screen',
-        parameters=[
-            {'detection_topic': '/yolo/tracked_detections_1'},
-            {'depth_topic': '/camera/depth_map_1'},
-            {'output_topic': '/yolo/tracked_detections_0/depth'}
+            {'input_topic': '/yolo/detections_1/depth'},
+            {'output_topic': '/yolo/detections_1/depth/tracked'}
         ]
     )
     
@@ -174,7 +174,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_0'},
-            {'tracked_topic': '/yolo/tracked_detections_0/depth'},
+            {'tracked_topic': '/yolo/detections_0/depth/tracked'},
             {'output_topic': '/camera/yolo_overlay_tracked_0'}
         ]
     )
@@ -182,11 +182,11 @@ def generate_launch_description():
     tracked_overlay_1 = launch_ros.actions.Node(
         package='perception',
         executable='tracked_bbox_overlay_node',
-        name='tracked_overlay_0',
+        name='tracked_overlay_1',
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_1'},
-            {'tracked_topic': '/yolo/tracked_detections_1/depth'},
+            {'tracked_topic': '/yolo/detections_1/depth/tracked'},
             {'output_topic': '/camera/yolo_overlay_tracked_1'}
         ]
     )
@@ -200,14 +200,14 @@ def generate_launch_description():
         stereo_depth_node,
         yolov8_detection_0,
         # yolov8_detection_1,
-        # object_depth_fusion_node_0,
+        object_depth_fusion_node_0,
         # object_depth_fusion_node_1,
         # overlay_0,
-        # overlay_1,     
+        # overlay_1,
+        # object_depth_fusion_tracked_node_0,
+        # object_depth_fusion_tracked_node_1,   
         byte_track_node_0,
         # byte_track_node_1,
-        object_depth_fusion_tracked_node_0,
-        # object_depth_fusion_tracked_node_1,
         tracked_overlay_0,
         # tracked_overlay_1,
     ])
