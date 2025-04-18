@@ -35,9 +35,12 @@ setup(
             'sync_capture_node = perception.sync_capture_node:main',
             'stereo_depth_node = perception.stereo_depth_node:main',
             'object_detection_node = perception.object_detection_node:main',
+            'byte_track_node = perception.byte_track_node:main',
             'bbox_overlay_node = perception.bbox_overlay_node:main',
+            'tracked_bbox_overlay_node = perception.tracked_bbox_overlay_node:main',
             'depth_visualizer_node = perception.depth_visualizer_node:main',
             'object_depth_fusion_node = perception.object_depth_fusion_node:main',
+            'object_depth_fusion_tracked_node = perception.object_depth_fusion_tracked_node:main',
         ],
     },
 )

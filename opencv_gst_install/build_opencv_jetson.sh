@@ -1,9 +1,12 @@
 #!/bin/bash
 
-# Set up paths
-OPENCV_DIR=~/IDS/opencv
-OPENCV_CONTRIB_DIR=~/IDS/opencv_contrib
-BUILD_DIR=$OPENCV_DIR/build
+# Get absolute path to the directory containing this script
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Set up OpenCV source paths relative to this script
+OPENCV_DIR="$SCRIPT_DIR/opencv"
+OPENCV_CONTRIB_DIR="$SCRIPT_DIR/opencv_contrib"
+BUILD_DIR="$OPENCV_DIR/build"
 
 # Create build directory if it doesn't exist
 mkdir -p "$BUILD_DIR"

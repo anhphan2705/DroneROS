@@ -1,4 +1,5 @@
 int32 id
+int32 track_id
 int32 class_id
 string class_name
 float32 confidence

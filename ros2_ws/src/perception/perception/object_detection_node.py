@@ -89,6 +89,7 @@ class YOLOv8InferenceNode(Node):
 
             det = BoundingBox()
             det.id = i
+            det.class_id = cls
             det.class_name = self.class_names[cls]
             det.confidence = conf
             det.x_min = x1

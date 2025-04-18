@@ -18,6 +18,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FocusStatus.msg"
   "msg/BoundingBox.msg"
   "msg/BoundingBoxes.msg"
+  "msg/TrackedBoundingBox.msg"
+  "msg/TrackedBoundingBoxes.msg"
   "srv/CameraCalibrationRequest.srv"
   "srv/CaptureImageRequest.srv"
   DEPENDENCIES std_msgs sensor_msgs std_srvs
