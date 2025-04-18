@@ -8,3 +8,7 @@ int32 y_min
 int32 x_max
 int32 y_max
 float32 depth
+float32 speed_x
+float32 speed_y
+float32 speed_z
+float32 speed_mps

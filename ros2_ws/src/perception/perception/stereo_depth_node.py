@@ -15,11 +15,26 @@ class StereoDepthNode(Node):
         super().__init__('stereo_depth_node')
         self.br = CvBridge()
 
+        self.declare_parameter('sub_left_0', '/camera/rectified/split_0')
+        self.declare_parameter('sub_right_0', '/camera/rectified/split_1')
+        self.declare_parameter('sub_left_1', '/camera/rectified/split_2')
+        self.declare_parameter('sub_right_1', '/camera/rectified/split_3')
+        self.declare_parameter('horizontal_fov_deg', 66.0)
+        self.declare_parameter('baseline_m', 0.05)  # 50 mm
+        
+        self.sub_left_0 = self.get_parameter('sub_left_0').get_parameter_value().string_value
+        self.sub_right_0 = self.get_parameter('sub_right_0').get_parameter_value().string_value
+        self.sub_left_1 = self.get_parameter('sub_left_1').get_parameter_value().string_value
+        self.sub_right_1 = self.get_parameter('sub_right_1').get_parameter_value().string_value
+        self.horizontal_fov_deg = self.get_parameter('horizontal_fov_deg').value
+        self.baseline_m = self.get_parameter('baseline_m').value        
+        
         # Create subscribers for each stereo pair
-        self.sub_left_0 = Subscriber(self, Image, '/camera/rectified/split_0')
-        self.sub_right_0 = Subscriber(self, Image, '/camera/rectified/split_1')
-        self.sub_left_1 = Subscriber(self, Image, '/camera/rectified/split_2')
-        self.sub_right_1 = Subscriber(self, Image, '/camera/rectified/split_3')
+        self.sub_left_0 = Subscriber(self, Image, self.sub_left_0)
+        self.sub_right_0 = Subscriber(self, Image, self.sub_right_0)
+        self.sub_left_1 = Subscriber(self, Image, self.sub_left_1)
+        self.sub_right_1 = Subscriber(self, Image, self.sub_right_1)
+
 
         # Synchronize left & right images for each pair
         self.sync_0 = ApproximateTimeSynchronizer([self.sub_left_0, self.sub_right_0], queue_size=5, slop=0.05)
@@ -40,10 +55,6 @@ class StereoDepthNode(Node):
         self.uniqueness = -1.0
         self.includediagonals = False
         self.stream = vpi.Stream()  # Create a reusable VPI stream
-        
-        # Camera spec: horizontal FOV (degrees) and baseline (in meters)
-        self.horizontal_fov_deg = 75.0
-        self.baseline_m = 0.05  # 50 mm
 
         self.get_logger().info("StereoDepthNode Initialized!")
 

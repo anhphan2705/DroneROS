@@ -46,7 +46,16 @@ def generate_launch_description():
         package='perception',
         executable='stereo_depth_node',
         name='stereo_depth_node',
-        output='screen'
+        output='screen',
+        parameters=[
+            {'sub_left_0': '/camera/rectified/split_0'},
+            {'sub_right_0': '/camera/rectified/split_1'},
+            {'sub_left_1': '/camera/rectified/split_2'},
+            {'sub_right_1': '/camera/rectified/split_3'},
+            {'horizontal_fov_deg': 66.0},
+            {'baseline_m': 0.05},
+            
+        ]
     )
 
     yolov8_detection_0 = launch_ros.actions.Node(
@@ -144,7 +153,7 @@ def generate_launch_description():
     #         {'output_topic': '/yolo/detections_1/depth'}
     #     ]
     # )
-    
+
     byte_track_node_0 = launch_ros.actions.Node(
         package='perception',
         executable='byte_track_node',
@@ -152,7 +161,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'input_topic': '/yolo/detections_0/depth'},
-            {'output_topic': '/yolo/detections_0/depth/tracked'}
+            {'output_topic': '/yolo/detections_0/depth/tracked'},
+            {'image_topic': '/camera/rectified/split_0'},
+            {'horizontal_fov_deg': 66.0},
+            {'vertical_fov_deg': 49.5},
         ]
     )
     
@@ -163,7 +175,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'input_topic': '/yolo/detections_1/depth'},
-            {'output_topic': '/yolo/detections_1/depth/tracked'}
+            {'output_topic': '/yolo/detections_1/depth/tracked'},
+            {'image_topic': '/camera/rectified/split_2'},
+            {'horizontal_fov_deg': 66.0},
+            {'vertical_fov_deg': 49.5},
         ]
     )
     
