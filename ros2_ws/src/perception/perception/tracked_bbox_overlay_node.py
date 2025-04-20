@@ -50,7 +50,7 @@ class TrackedBBoxOverlayNode(Node):
             if box.depth > 0:
                 label += f' ({box.depth:.2f}m)'
             if box.speed_mps > 0:
-                label += f' {box.speed_mps:.2f}m/s'
+                label += f' ({box.speed_mps:.2f}m/s)'
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 128, 255), 2)
             cv2.putText(frame, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX,

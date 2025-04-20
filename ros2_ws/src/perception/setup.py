@@ -42,6 +42,7 @@ setup(
             'object_depth_fusion_node = perception.object_depth_fusion_node:main',
             'object_depth_fusion_tracked_node = perception.object_depth_fusion_tracked_node:main',
             'classification_node = perception.classification_node:main',
+            'traffic_light_classification_node = perception.traffic_light_classification_node:main',
             
         ],
     },

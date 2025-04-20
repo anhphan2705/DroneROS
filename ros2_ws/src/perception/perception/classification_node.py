@@ -144,11 +144,12 @@ class ClassificationNode(Node):
         batch = torch.cat(crops, dim=0)
         with torch.no_grad():
             try:
-                logits = self.model(batch)
+                output = self.model.model(batch)         # Tensor [B, C]
+                raw_logits = output[0] if isinstance(output, (tuple, list)) else output
             except Exception as e:
                 self.get_logger().error(f"Inference failed: {e}")
                 return
-            preds = torch.argmax(logits, dim=1).cpu().numpy().tolist()
+            preds = torch.argmax(raw_logits, dim=1).cpu().numpy().tolist()
         id_to_cls = {tid: cls for tid, cls in zip(ids, preds)}
 
         # Build and publish output
@@ -173,7 +174,7 @@ class ClassificationNode(Node):
             new_box.speed_mps = box.speed_mps
             out_msg.boxes.append(new_box)
         self.pub.publish(out_msg)
-        self.get_logger().info(f"Publishing {len(ids)} classification IDs.")
+        self.get_logger().info(f"Publishing {len(id_to_cls)} classification IDs.")
 
 
 def main(args=None):
