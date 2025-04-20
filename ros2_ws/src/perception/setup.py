@@ -41,6 +41,8 @@ setup(
             'depth_visualizer_node = perception.depth_visualizer_node:main',
             'object_depth_fusion_node = perception.object_depth_fusion_node:main',
             'object_depth_fusion_tracked_node = perception.object_depth_fusion_tracked_node:main',
+            'classification_node = perception.classification_node:main',
+            
         ],
     },
 )

@@ -1,5 +1,6 @@
 int32 id
 int32 class_id
+int32 classification_id
 string class_name
 float32 confidence
 int32 x_min

@@ -114,9 +114,10 @@ class ByteTrackNode(Node):
             conf = box.confidence
             class_name = box.class_name
             class_id = box.class_id
+            classification_id = box.classification_id
             depth = box.depth
 
-            detections.append([x1, y1, x2, y2, conf, class_id, depth, conf])
+            detections.append([x1, y1, x2, y2, conf, class_id, depth, conf, classification_id])
             class_map[class_id] = class_name
 
             self.image_shape = (
@@ -163,6 +164,7 @@ class ByteTrackNode(Node):
             tracked_box.id = int(track_id)
             tracked_box.track_id = int(track_id)
             tracked_box.class_id = int(class_id)
+            tracked_box.classification_id = int(track.classification_id)
             tracked_box.class_name = str(class_name)
             tracked_box.confidence = float(track.confidence)
             tracked_box.x_min = int(tlbr[0])
