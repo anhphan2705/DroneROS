@@ -186,7 +186,19 @@ def generate_launch_description():
             {'classification_topic': '/yolo/detections_0/depth/tracked/classified/light'},
         ]
     )
-       
+
+    id_mapper_node = launch_ros.actions.Node(
+        package='perception',
+        executable='id_mapper_node',
+        name='id_mapper_node',
+        output='screen',
+        parameters=[
+            {'mapping_file': 'id_map.yaml'},
+            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified/light'},
+            {'output_topic': '/yolo/detections_0/depth/tracked/classified/light/mapped'}
+        ]
+    )
+
     tracked_overlay_0 = launch_ros.actions.Node(
         package='perception',
         executable='tracked_bbox_overlay_node',
@@ -194,7 +206,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_0'},
-            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified/light'},
+            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified/light/mapped'},
             {'output_topic': '/camera/yolo_overlay_tracked_0'}
         ]
     )
@@ -230,6 +242,7 @@ def generate_launch_description():
         # byte_track_node_1,
         classification_node_id11,
         traffic_light_classification,
+        id_mapper_node,
         tracked_overlay_0,
         # tracked_overlay_1,
     ])

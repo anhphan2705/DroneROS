@@ -1,0 +1,119 @@
+# config/id_mapping.yaml
+
+# 0xx = IDs of non classified object
+# 1xx = IDs of traffic signs
+# 2xx = IDs of traffic light states
+mappings:
+
+  # 1) Non‑classified objects (0xx), outputs 0-9
+  - id: 000
+    class_id: 0
+    classification_id: -1
+    class_name: deer
+
+  - id: 001
+    class_id: 1
+    classification_id: -1
+    class_name: barrel
+
+  - id: 003
+    class_id: 3
+    classification_id: -1
+    class_name: biker
+
+  - id: 004
+    class_id: 4
+    classification_id: -1
+    class_name: car
+
+  - id: 005
+    class_id: 5
+    classification_id: -1
+    class_name: pedestrian
+
+  - id: 006
+    class_id: 6
+    classification_id: -1
+    class_name: trafficLight
+
+  - id: 007
+    class_id: 7
+    classification_id: -1
+    class_name: railroad-crossing-down
+
+  - id: 008
+    class_id: 8
+    classification_id: -1
+    class_name: railroad-crossings
+
+  # 2) Traffic‑signs (1xx), classifier outputs 0–8
+  - id: 100
+    class_id: 2
+    classification_id: 0
+    class_name: left_only
+
+  - id: 101
+    class_id: 2
+    classification_id: 1
+    class_name: no_entry
+
+  - id: 102
+    class_id: 2
+    classification_id: 2
+    class_name: no_left
+
+  - id: 103
+    class_id: 2
+    classification_id: 3
+    class_name: no_right_turn
+
+  - id: 104
+    class_id: 2
+    classification_id: 4
+    class_name: right_turn_only
+
+  - id: 105
+    class_id: 2
+    classification_id: 5
+    class_name: road_closed
+
+  - id: 106
+    class_id: 2
+    classification_id: 6
+    class_name: speed_limit_25
+
+  - id: 107
+    class_id: 2
+    classification_id: 7
+    class_name: stop_sign
+
+  - id: 108
+    class_id: 2
+    classification_id: 8
+    class_name: yield_sign
+
+  # 3) Traffic‑lights (2xx), classifier outputs 0–4
+  - id: 200
+    class_id: 6
+    classification_id: 0
+    class_name: off
+
+  - id: 201
+    class_id: 6
+    classification_id: 1
+    class_name: red
+
+  - id: 202
+    class_id: 6
+    classification_id: 2
+    class_name: yellow
+
+  - id: 203
+    class_id: 6
+    classification_id: 3
+    class_name: green
+
+  - id: 204
+    class_id: 6
+    classification_id: 4
+    class_name: failed

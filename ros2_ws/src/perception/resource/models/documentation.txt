@@ -1,0 +1,2 @@
+nc: 12
+names: ['Deer','barrel','traffic-signs','biker', 'car', 'pedestrian', 'trafficLight', 'trafficLight-Green', 'trafficLight-Red', 'trafficLight-Yellow','railroad-crossing-down', 'railroad-crossings']

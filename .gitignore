@@ -181,5 +181,6 @@ build/*
 install/*
 log/*
 ros2_ws/image_captured/*
-ros2_ws/src/perception/resource/*
+ros2_ws/src/perception/resource/models/*.onnx
+ros2_ws/src/perception/resource/models/*.pt
 torch-cuda-jp60/*

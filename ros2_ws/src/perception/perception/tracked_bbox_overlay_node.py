@@ -44,7 +44,7 @@ class TrackedBBoxOverlayNode(Node):
         for box in tracked_msg.boxes:
             x1, y1, x2, y2 = box.x_min, box.y_min, box.x_max, box.y_max
 
-            label = f'Track: {box.track_id} | ID: {box.class_name}:{box.class_id} | {box.confidence:.2f}'
+            label = f'Track: {box.track_id} | ID: {box.class_name}:{box.id:03d} | {box.confidence:.2f}'
             if box.classification_id > 0:
                 label += f' | cID: {box.classification_id:.2f} |'
             if box.depth > 0:
