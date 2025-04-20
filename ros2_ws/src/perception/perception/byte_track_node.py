@@ -71,13 +71,33 @@ class ByteTrackNode(Node):
     def image_callback(self, msg: Image):
         if self.focal_length_computed:
             return
-        
+
         height = msg.height
         width = msg.width
         self.image_shape = (height, width)
+        aspect_ratio = width / height
 
-        self.fx = (width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
-        self.fy = (height / 2) / math.tan(math.radians(self.vertical_fov_deg / 2))
+        # Compute fx, fy from known FOVs
+        if self.fx is None and self.horizontal_fov_deg > 0:
+            self.fx = (width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
+        if self.fy is None and self.vertical_fov_deg > 0:
+            self.fy = (height / 2) / math.tan(math.radians(self.vertical_fov_deg / 2))
+
+        # Infer vertical FOV from horizontal FOV if vertical is missing
+        if self.vertical_fov_deg < 0 and self.horizontal_fov_deg > 0:
+            self.vertical_fov_deg = math.degrees(2 * math.atan(math.tan(math.radians(self.horizontal_fov_deg / 2)) / aspect_ratio))
+            self.fy = (height / 2) / math.tan(math.radians(self.vertical_fov_deg / 2))
+            self.get_logger().warn(f"Inferred vertical FOV: {self.vertical_fov_deg:.2f}°")
+
+        # Infer horizontal FOV from vertical FOV if horizontal is missing
+        if self.horizontal_fov_deg < 0 and self.vertical_fov_deg > 0:
+            self.horizontal_fov_deg = math.degrees(2 * math.atan(math.tan(math.radians(self.vertical_fov_deg / 2)) * aspect_ratio))
+            self.fx = (width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
+            self.get_logger().warn(f"Inferred horizontal FOV: {self.horizontal_fov_deg:.2f}°")
+
+        if self.fx is None or self.fy is None:
+            self.get_logger().error("Failed to compute fx/fy due to missing FOV values.")
+            return
 
         self.get_logger().info(f"Image shape: {self.image_shape}, fx: {self.fx:.2f}, fy: {self.fy:.2f}")
         self.focal_length_computed = True
@@ -96,7 +116,7 @@ class ByteTrackNode(Node):
             class_id = box.class_id
             depth = box.depth
 
-            detections.append([x1, y1, x2, y2, conf, class_id, depth])
+            detections.append([x1, y1, x2, y2, conf, class_id, depth, conf])
             class_map[class_id] = class_name
 
             self.image_shape = (
@@ -144,7 +164,7 @@ class ByteTrackNode(Node):
             tracked_box.track_id = int(track_id)
             tracked_box.class_id = int(class_id)
             tracked_box.class_name = str(class_name)
-            tracked_box.confidence = float(track.score)
+            tracked_box.confidence = float(track.confidence)
             tracked_box.x_min = int(tlbr[0])
             tracked_box.y_min = int(tlbr[1])
             tracked_box.x_max = int(tlbr[2])
