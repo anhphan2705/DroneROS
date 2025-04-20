@@ -54,6 +54,8 @@ class ClassificationNode(Node):
         try:
             self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
             self.model = YOLO(self.model_path).to(self.device)
+            self.class_names = self.model.names
+            self.get_logger().info(f"Loaded model on device={self.device}, classes={self.class_names}")
         except Exception as e:
             self.get_logger().error(f"Failed to load YOLOv8 model: {e}")
             return

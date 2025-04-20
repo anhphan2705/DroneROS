@@ -65,6 +65,7 @@ class ByteTrackNode(Node):
         self.fy = None
         self.image_shape = None
         self.focal_length_computed = False
+        self.class_map = {}
 
         self.get_logger().info(f"ByteTrack node subscribed to {self.input_topic}, publishing to {self.output_topic}")
         
@@ -104,7 +105,6 @@ class ByteTrackNode(Node):
 
     def detection_callback(self, msg: BoundingBoxes):
         detections = []
-        class_map = {}
 
         if self.fx is None or self.image_shape is None:
             self.get_logger().warn("Inaccurate speed estimation: fx/fy not calculated")
@@ -118,7 +118,9 @@ class ByteTrackNode(Node):
             depth = box.depth
 
             detections.append([x1, y1, x2, y2, conf, class_id, depth, conf, classification_id])
-            class_map[class_id] = class_name
+            
+            if class_id not in self.class_map and class_name:
+                self.class_map[class_id] = class_name
 
             self.image_shape = (
                 max(self.image_shape[0], y2),
@@ -149,7 +151,7 @@ class ByteTrackNode(Node):
             tlbr = track.tlbr
             track_id = track.track_id
             class_id = int(track.class_id)
-            class_name = class_map.get(class_id, "unknown")
+            class_name = self.class_map.get(class_id, "unknown")
             depth = float(track.depth)
 
             cx = (tlbr[0] + tlbr[2]) / 2.0
