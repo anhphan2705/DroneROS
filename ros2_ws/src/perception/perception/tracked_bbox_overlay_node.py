@@ -32,7 +32,7 @@ class TrackedBBoxOverlayNode(Node):
 
         self.image_pub = self.create_publisher(Image, output_topic, 10)
 
-        self.get_logger().info("TrackedBBoxOverlayNode started — drawing track IDs on image.")
+        self.get_logger().info("TrackedBBoxOverlayNode started — drawing on image.")
 
     def callback(self, img_msg: Image, tracked_msg: TrackedBoundingBoxes):
         try:
@@ -44,7 +44,9 @@ class TrackedBBoxOverlayNode(Node):
         for box in tracked_msg.boxes:
             x1, y1, x2, y2 = box.x_min, box.y_min, box.x_max, box.y_max
 
-            label = f'Track: {box.track_id} | {box.class_name}:{box.class_id} | {box.confidence:.2f}'
+            label = f'Track: {box.track_id} | ID: {box.class_name}:{box.class_id} | {box.confidence:.2f}'
+            if box.classification_id > 0:
+                label += f' | cID: {box.classification_id:.2f} |'
             if box.depth > 0:
                 label += f' ({box.depth:.2f}m)'
             if box.speed_mps > 0:

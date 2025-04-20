@@ -12,6 +12,7 @@ import torch
 from torchvision import transforms
 from PIL import Image as PILImage
 import cv2
+from ultralytics import YOLO
 
 class ClassificationNode(Node):
     def __init__(self):
@@ -20,13 +21,21 @@ class ClassificationNode(Node):
         # Parameters
         self.declare_parameter('tracked_topic', '/yolo/detections_1/depth/tracked')
         self.declare_parameter('image_topic', '/camera/image_raw')
-        self.declare_parameter('classifier_model_path', 'your_model.pt')
-        self.declare_parameter('input_size', [])  # [H, W] or empty list for dynamic
-        self.declare_parameter('classification_topic', '/yolo/classification_results')
+        self.declare_parameter('classifier_model_path', 'sign_classification_model.pt')
+        self.declare_parameter('input_size', [0, 0]) # [H, W] or [0, 0] for dynamic
+        self.declare_parameter('class_ids_to_classify', [-1]) # list of int class_ids or -1 to classify all
+        self.declare_parameter('classification_topic', '/yolo/detections_1/depth/tracked/classified')
 
         self.tracked_topic = self.get_parameter('tracked_topic').value
         self.image_topic = self.get_parameter('image_topic').value
         model_path_param = self.get_parameter('classifier_model_path').value
+        self.class_ids_to_classify = self.get_parameter('class_ids_to_classify').value or []
+        self.input_size = self.get_parameter('input_size').value or [0, 0]
+        self.classification_topic = self.get_parameter('classification_topic').value
+
+        if self.class_ids_to_classify == [-1]:
+            self.class_ids_to_classify = []
+            
         # Resolve model path
         if os.path.isabs(model_path_param):
             self.model_path = model_path_param
@@ -34,37 +43,33 @@ class ClassificationNode(Node):
             pkg_dir = get_package_share_directory('perception')
             self.model_path = os.path.join(pkg_dir, "models", model_path_param)
         if not os.path.exists(self.model_path):
-            self.get_logger().error(f"Model file not found at: {self.model_path}")
+            self.get_logger().error(f"Model file not found: {self.model_path}")
             rclpy.shutdown()
             return
-
-        self.input_size = self.get_parameter('input_size').value
-        self.classification_topic = self.get_parameter('classification_topic').value
 
         # CV bridge for image conversion
         self.bridge = CvBridge()
 
-        # Load classifier
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Load classifier model
         try:
-            self.model = torch.load(self.model_path, map_location=self.device)
-            self.model.eval()
+            self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+            self.model = YOLO(self.model_path).to(self.device)
         except Exception as e:
-            self.get_logger().error(f"Failed to load model: {e}")
-            rclpy.shutdown()
+            self.get_logger().error(f"Failed to load YOLOv8 model: {e}")
             return
 
         # Build preprocessing transforms
         transforms_list = []
-        if isinstance(self.input_size, (list, tuple)) and len(self.input_size) == 2:
+        # Only resize if user supplied positive dimensions
+        if isinstance(self.input_size, list) and len(self.input_size) == 2 \
+           and self.input_size[0] > 0 and self.input_size[1] > 0:
             transforms_list.append(transforms.Resize(tuple(self.input_size)))
         transforms_list.extend([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         self.preprocess = transforms.Compose(transforms_list)
-        dynamic_support = not transforms_list or (isinstance(self.input_size, (list, tuple)) and len(self.input_size) == 2)
+        dynamic_support = not (self.input_size[0] > 0 and self.input_size[1] > 0)
 
         # Subscribers & synchronization
         img_sub = Subscriber(self, Image, self.image_topic)
@@ -76,10 +81,11 @@ class ClassificationNode(Node):
         self.pub = self.create_publisher(TrackedBoundingBoxes, self.classification_topic, 10)
 
         self.get_logger().info(
-            f"Classification node ready.\n"
+            f"Classification node ready. Using {self.device}.\n"
             f" Subscribed to: {self.tracked_topic}\n"
             f" and {self.image_topic}\n"
-            f"Dynamic input support: {'enabled' if dynamic_support else 'disabled'}"
+            f"Class IDs to classify: {self.class_ids_to_classify if self.class_ids_to_classify else 'ALL'}\n"
+            f"Dynamic resize: {'enabled' if dynamic_support else 'disabled'}"
         )
 
     def callback(self, img_msg: Image, trk_msg: TrackedBoundingBoxes):
@@ -89,23 +95,24 @@ class ClassificationNode(Node):
         except Exception as e:
             self.get_logger().error(f"Image conversion failed: {e}")
             return
-
         h, w = cv_img.shape[:2]
+
         crops, ids = [], []
-        # Extract ROIs
+        # Collect ROIs only for specified class_ids (or all if empty)
         for box in trk_msg.boxes:
+            if self.class_ids_to_classify and box.class_id not in self.class_ids_to_classify:
+                continue
             x1, y1 = max(0, box.x_min), max(0, box.y_min)
             x2, y2 = min(w, box.x_max), min(h, box.y_max)
             if x2 <= x1 or y2 <= y1:
                 continue
             roi = cv_img[y1:y2, x1:x2]
-            # Convert BGR to RGB for PIL
             pil_img = PILImage.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
             tensor = self.preprocess(pil_img).unsqueeze(0).to(self.device)
             crops.append(tensor)
             ids.append(box.track_id)
 
-        # No crops => publish all boxes with classification_id = -1
+        # If no crops, publish defaults (-1)
         if not crops:
             out_msg = TrackedBoundingBoxes()
             out_msg.header = trk_msg.header
@@ -128,17 +135,21 @@ class ClassificationNode(Node):
                 new_box.speed_mps = box.speed_mps
                 out_msg.boxes.append(new_box)
             self.pub.publish(out_msg)
+            self.get_logger().info(f"Publishing {len(ids)} classification IDs.")
             return
 
-        # Batch inference
+        # Batch inference for collected ROIs
         batch = torch.cat(crops, dim=0)
         with torch.no_grad():
-            logits = self.model(batch)
+            try:
+                logits = self.model(batch)
+            except Exception as e:
+                self.get_logger().error(f"Inference failed: {e}")
+                return
             preds = torch.argmax(logits, dim=1).cpu().numpy().tolist()
-        # Map track_id to classification_id
-        id_to_cls = {tid: cls_id for tid, cls_id in zip(ids, preds)}
+        id_to_cls = {tid: cls for tid, cls in zip(ids, preds)}
 
-        # Build output message
+        # Build and publish output
         out_msg = TrackedBoundingBoxes()
         out_msg.header = trk_msg.header
         for box in trk_msg.boxes:
@@ -159,8 +170,8 @@ class ClassificationNode(Node):
             new_box.speed_z = box.speed_z
             new_box.speed_mps = box.speed_mps
             out_msg.boxes.append(new_box)
-
         self.pub.publish(out_msg)
+        self.get_logger().info(f"Publishing {len(ids)} classification IDs.")
 
 
 def main(args=None):

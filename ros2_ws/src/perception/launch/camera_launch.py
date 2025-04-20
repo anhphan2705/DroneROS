@@ -181,6 +181,21 @@ def generate_launch_description():
             {'output_topic': '/camera/yolo_overlay_tracked_1'}
         ]
     )
+    
+    classification_node_id11 = launch_ros.actions.Node(
+        package='perception',
+        executable='classification_node',
+        name='classification_node',
+        output='screen',
+        parameters=[
+            {'tracked_topic': '/yolo/detections_1/depth/tracked'},
+            {'image_topic': '/camera/image_raw'},
+            {'classifier_model_path': 'sign_classification_model.pt'},
+            {'input_size': [320, 320]},  # leave empty for dynamic crop sizes
+            {'class_ids_to_classify': [11]},  # e.g. [1, 2, 3]
+            {'classification_topic': '/yolo/detections_1/depth/tracked/classified'},
+        ]
+    )
 
     return launch.LaunchDescription([
         camera_node,
@@ -199,6 +214,7 @@ def generate_launch_description():
         # object_depth_fusion_tracked_node_1,   
         byte_track_node_0,
         # byte_track_node_1,
+        classification_node_id11,
         tracked_overlay_0,
         # tracked_overlay_1,
     ])
