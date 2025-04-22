@@ -52,6 +52,8 @@ def generate_launch_description():
             {'sub_right_0': '/camera/rectified/split_1'},
             {'sub_left_1': '/camera/rectified/split_2'},
             {'sub_right_1': '/camera/rectified/split_3'},
+            {'depth_publisher_0': '/camera/depth_map_0'},
+            {'depth_publisher_1': '/camera/depth_map_1'},
             {'horizontal_fov_deg': 66.0},
             {'baseline_m': 0.05},
             
@@ -70,65 +72,41 @@ def generate_launch_description():
         ]
     )
 
-    yolov8_detection_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='object_detection_node',
-        name='yolo_detection_1',
-        output='screen',
-        parameters=[
-            {'model_path': 'yolov8s_fp16.engine'},
-            {'image_topic': '/camera/rectified/split_2'},
-            {'detection_topic': '/yolo/detections_1'}
-        ]
-    )
-    
-    object_depth_fusion_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='object_depth_fusion_node',
-        name='object_depth_fusion_node_0',
-        output='screen',
-        parameters=[
-            {'detection_topic': '/yolo/detections_0'},
-            {'depth_topic': '/camera/depth_map_0'},
-            {'output_topic': '/yolo/detections_0/depth'}
-        ]
-    )
-    
-    object_depth_fusion_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='object_depth_fusion_node',
-        name='object_depth_fusion_node',
-        output='screen',
-        parameters=[
-            {'detection_topic': '/yolo/detections_1'},
-            {'depth_topic': '/camera/depth_map_1'},
-            {'output_topic': '/yolo/detections_1/depth'}
-        ]
-    )
-    
-    overlay_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='bbox_overlay_node',
-        name='bbox_overlay_0',
-        output='screen',
-        parameters=[
-            {'image_topic': '/camera/rectified/split_0'},
-            {'detection_topic': '/yolo/detections_0/depth'},
-            {'output_topic': '/camera/yolo_overlay_0'}
-        ]
-    )
+    # yolov8_detection_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='object_detection_node',
+    #     name='yolo_detection_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'model_path': 'yolov8s_fp16.engine'},
+    #         {'image_topic': '/camera/rectified/split_2'},
+    #         {'detection_topic': '/yolo/detections_1'}
+    #     ]
+    # )
 
-    overlay_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='bbox_overlay_node',
-        name='bbox_overlay_1',
-        output='screen',
-        parameters=[
-            {'image_topic': '/camera/rectified/split_2'},
-            {'detection_topic': '/yolo/detections_1/depth'},
-            {'output_topic': '/camera/yolo_overlay_1'}
-        ]
-    )
+    # overlay_0 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='bbox_overlay_node',
+    #     name='bbox_overlay_0',
+    #     output='screen',
+    #     parameters=[
+    #         {'image_topic': '/camera/rectified/split_0'},
+    #         {'detection_topic': '/yolo/detections_0/depth'},
+    #         {'output_topic': '/camera/yolo_overlay_0'}
+    #     ]
+    # )
+
+    # overlay_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='bbox_overlay_node',
+    #     name='bbox_overlay_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'image_topic': '/camera/rectified/split_2'},
+    #         {'detection_topic': '/yolo/detections_1/depth'},
+    #         {'output_topic': '/camera/yolo_overlay_1'}
+    #     ]
+    # )
 
     byte_track_node_0 = launch_ros.actions.Node(
         package='perception',
@@ -136,27 +114,27 @@ def generate_launch_description():
         name='byte_track_node_0',
         output='screen',
         parameters=[
-            {'input_topic': '/yolo/detections_0/depth'},
-            {'output_topic': '/yolo/detections_0/depth/tracked'},
+            {'input_topic': '/yolo/detections_0'},
+            {'output_topic': '/yolo/detections_0/tracked'},
             {'image_topic': '/camera/rectified/split_0'},
             {'horizontal_fov_deg': 66.0},
             {'vertical_fov_deg': 49.5},
         ]
     )
     
-    byte_track_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='byte_track_node',
-        name='byte_track_node_1',
-        output='screen',
-        parameters=[
-            {'input_topic': '/yolo/detections_1/depth'},
-            {'output_topic': '/yolo/detections_1/depth/tracked'},
-            {'image_topic': '/camera/rectified/split_2'},
-            {'horizontal_fov_deg': 66.0},
-            {'vertical_fov_deg': 49.5},
-        ]
-    )
+    # byte_track_node_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='byte_track_node',
+    #     name='byte_track_node_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'input_topic': '/yolo/detections_1'},
+    #         {'output_topic': '/yolo/detections_1/tracked'},
+    #         {'image_topic': '/camera/rectified/split_2'},
+    #         {'horizontal_fov_deg': 66.0},
+    #         {'vertical_fov_deg': 49.5},
+    #     ]
+    # )
     
     classification_node_id11 = launch_ros.actions.Node(
         package='perception',
@@ -164,12 +142,12 @@ def generate_launch_description():
         name='classification_node',
         output='screen',
         parameters=[
-            {'tracked_topic': '/yolo/detections_0/depth/tracked'},
+            {'tracked_topic': '/yolo/detections_0/tracked'},
             {'image_topic': '/camera/rectified/split_0'},
             {'classifier_model_path': 'sign_classification_model.pt'},
             {'input_size': [320, 320]},  # [0, 0] for dynamic crop sizes
             {'class_ids_to_classify': [11]},  # e.g. [1, 2, 3]
-            {'classification_topic': '/yolo/detections_0/depth/tracked/classified'},
+            {'classification_topic': '/yolo/detections_0/tracked/classified'},
         ]
     )
     
@@ -179,13 +157,37 @@ def generate_launch_description():
         name='traffic_light_classification',
         output='screen',
         parameters=[
-            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified'},
+            {'tracked_topic': '/yolo/detections_0/tracked/classified'},
             {'image_topic': '/camera/rectified/split_0'},
             {'input_size': [0, 0]},
             {'class_ids_to_classify': [9]},  # e.g. [1, 2, 3]
-            {'classification_topic': '/yolo/detections_0/depth/tracked/classified/light'},
+            {'classification_topic': '/yolo/detections_0/tracked/classified/light'},
         ]
     )
+    
+    object_depth_fusion_node_0 = launch_ros.actions.Node(
+        package='perception',
+        executable='object_depth_fusion_node',
+        name='object_depth_fusion_node_0',
+        output='screen',
+        parameters=[
+            {'detection_topic': '/yolo/detections_0/tracked/classified/light'},
+            {'depth_topic': '/camera/depth_map_0'},
+            {'output_topic': '/yolo/detections_0/tracked/classified/light/depth'}
+        ]
+    )
+    
+    # object_depth_fusion_node_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='object_depth_fusion_node',
+    #     name='object_depth_fusion_node',
+    #     output='screen',
+    #     parameters=[
+    #         {'detection_topic': '/yolo/detections_1'},
+    #         {'depth_topic': '/camera/depth_map_1'},
+    #         {'output_topic': '/yolo/detections_1/depth'}
+    #     ]
+    # )
 
     id_mapper_node = launch_ros.actions.Node(
         package='perception',
@@ -194,8 +196,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'mapping_file': 'id_map.yaml'},
-            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified/light'},
-            {'output_topic': '/yolo/detections_0/depth/tracked/classified/light/mapped'}
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth'},
+            {'map_topic': '/yolo/detections_0/tracked/classified/light/depth/mapped'}
         ]
     )
 
@@ -206,22 +208,22 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_0'},
-            {'tracked_topic': '/yolo/detections_0/depth/tracked/classified/light/mapped'},
-            {'output_topic': '/camera/yolo_overlay_tracked_0'}
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/mapped'},
+            {'output_topic': '/perception_img_visualizer_0'}
         ]
     )
      
-    tracked_overlay_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='tracked_bbox_overlay_node',
-        name='tracked_overlay_1',
-        output='screen',
-        parameters=[
-            {'image_topic': '/camera/rectified/split_1'},
-            {'tracked_topic': '/yolo/detections_1/depth/tracked/classified/light'},
-            {'output_topic': '/camera/yolo_overlay_tracked_1'}
-        ]
-    )
+    # tracked_overlay_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='tracked_bbox_overlay_node',
+    #     name='tracked_overlay_1',
+    #     output='screen',
+    #     parameters=[
+    #         {'image_topic': '/camera/rectified/split_1'},
+    #         {'tracked_topic': '/yolo/detections_1/depth/tracked/classified/light'},
+    #         {'output_topic': '/camera/yolo_overlay_tracked_1'}
+    #     ]
+    # )
 
     return launch.LaunchDescription([
         camera_node,
@@ -232,8 +234,6 @@ def generate_launch_description():
         stereo_depth_node,
         yolov8_detection_0,
         # yolov8_detection_1,
-        object_depth_fusion_node_0,
-        # object_depth_fusion_node_1,
         # overlay_0,
         # overlay_1,
         # object_depth_fusion_tracked_node_0,
@@ -242,6 +242,7 @@ def generate_launch_description():
         # byte_track_node_1,
         classification_node_id11,
         traffic_light_classification,
+        object_depth_fusion_node_0,
         id_mapper_node,
         tracked_overlay_0,
         # tracked_overlay_1,

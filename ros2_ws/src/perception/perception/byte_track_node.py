@@ -9,28 +9,6 @@ import numpy as np
 import math
 from argparse import Namespace
 
-class SpeedEstimator:
-    def __init__(self):
-        self.prev_positions = {}  # track_id -> (x, y, z, timestamp)
-
-    def compute_speed(self, track_id, x, y, z, ros_time):
-        timestamp = ros_time.sec + ros_time.nanosec * 1e-9
-        if track_id not in self.prev_positions:
-            self.prev_positions[track_id] = (x, y, z, timestamp)
-            return 0.0, 0.0, 0.0, 0.0
-
-        prev_x, prev_y, prev_z, prev_time = self.prev_positions[track_id]
-        dt = timestamp - prev_time
-        if dt <= 0.0:
-            return 0.0, 0.0, 0.0, 0.0
-
-        dx, dy, dz = x - prev_x, y - prev_y, z - prev_z
-        vx, vy, vz = dx / dt, dy / dt, dz / dt
-        speed = np.sqrt(vx**2 + vy**2 + vz**2)
-
-        self.prev_positions[track_id] = (x, y, z, timestamp)
-        return vx, vy, vz, speed
-
 class ByteTrackNode(Node):
     def __init__(self):
         super().__init__('byte_track_node')
@@ -59,7 +37,6 @@ class ByteTrackNode(Node):
             mot20=False,
         )
         self.tracker = BYTETracker(args, frame_rate=30)
-        self.speed_estimator = SpeedEstimator()
 
         self.fx = None
         self.fy = None
@@ -104,6 +81,11 @@ class ByteTrackNode(Node):
         self.focal_length_computed = True
 
     def detection_callback(self, msg: BoundingBoxes):
+        
+        if self.image_shape is None:
+            self.get_logger().warn("Waiting for image to determine image_shape")
+            return
+        
         detections = []
 
         if self.fx is None or self.image_shape is None:
@@ -114,10 +96,8 @@ class ByteTrackNode(Node):
             conf = box.confidence
             class_name = box.class_name
             class_id = box.class_id
-            classification_id = box.classification_id
-            depth = box.depth
 
-            detections.append([x1, y1, x2, y2, conf, class_id, depth, conf, classification_id])
+            detections.append([x1, y1, x2, y2, conf, class_id])
             
             if class_id not in self.class_map and class_name:
                 self.class_map[class_id] = class_name
@@ -142,42 +122,29 @@ class ByteTrackNode(Node):
 
         out_msg = TrackedBoundingBoxes()
         out_msg.header = msg.header
-        timestamp = msg.header.stamp
-
-        cx_img = self.image_shape[1] / 2.0
-        cy_img = self.image_shape[0] / 2.0
 
         for track in outputs:
             tlbr = track.tlbr
             track_id = track.track_id
             class_id = int(track.class_id)
             class_name = self.class_map.get(class_id, "unknown")
-            depth = float(track.depth)
-
-            cx = (tlbr[0] + tlbr[2]) / 2.0
-            cy = (tlbr[1] + tlbr[3]) / 2.0
-            x = (cx - cx_img) * depth / self.fx
-            y = (cy - cy_img) * depth / self.fy
-            z = depth
-
-            vx, vy, vz, speed = self.speed_estimator.compute_speed(track_id, x, y, z, timestamp)
 
             tracked_box = TrackedBoundingBox()
             tracked_box.id = int(track_id)
             tracked_box.track_id = int(track_id)
             tracked_box.class_id = int(class_id)
-            tracked_box.classification_id = int(track.classification_id)
+            tracked_box.classification_id = int(-1)
             tracked_box.class_name = str(class_name)
-            tracked_box.confidence = float(track.confidence)
+            tracked_box.confidence = float(track.score)
             tracked_box.x_min = int(tlbr[0])
             tracked_box.y_min = int(tlbr[1])
             tracked_box.x_max = int(tlbr[2])
             tracked_box.y_max = int(tlbr[3])
-            tracked_box.depth = depth
-            tracked_box.speed_x = vx
-            tracked_box.speed_y = vy
-            tracked_box.speed_z = vz
-            tracked_box.speed_mps = speed
+            tracked_box.depth = -1.0
+            tracked_box.speed_x = -1.0
+            tracked_box.speed_y = -1.0
+            tracked_box.speed_z = -1.0
+            tracked_box.speed_mps = -1.0
 
             out_msg.boxes.append(tracked_box)
 

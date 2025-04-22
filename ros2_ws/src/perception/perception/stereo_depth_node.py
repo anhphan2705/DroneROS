@@ -19,6 +19,8 @@ class StereoDepthNode(Node):
         self.declare_parameter('sub_right_0', '/camera/rectified/split_1')
         self.declare_parameter('sub_left_1', '/camera/rectified/split_2')
         self.declare_parameter('sub_right_1', '/camera/rectified/split_3')
+        self.declare_parameter('depth_publisher_0', '/camera/depth_map_0')
+        self.declare_parameter('depth_publisher_1', '/camera/depth_map_1')
         self.declare_parameter('horizontal_fov_deg', 66.0)
         self.declare_parameter('baseline_m', 0.05)  # 50 mm
         
@@ -26,6 +28,8 @@ class StereoDepthNode(Node):
         self.sub_right_0 = self.get_parameter('sub_right_0').get_parameter_value().string_value
         self.sub_left_1 = self.get_parameter('sub_left_1').get_parameter_value().string_value
         self.sub_right_1 = self.get_parameter('sub_right_1').get_parameter_value().string_value
+        self.depth_publisher_0 = self.get_parameter('depth_publisher_0').get_parameter_value().string_value
+        self.depth_publisher_1 = self.get_parameter('depth_publisher_1').get_parameter_value().string_value
         self.horizontal_fov_deg = self.get_parameter('horizontal_fov_deg').value
         self.baseline_m = self.get_parameter('baseline_m').value        
         
@@ -44,8 +48,8 @@ class StereoDepthNode(Node):
         self.sync_1.registerCallback(self.process_stereo, 1)
 
         # Publishers for depth maps
-        self.depth_publisher_0 = self.create_publisher(Image, '/camera/depth_map_0', 10)
-        self.depth_publisher_1 = self.create_publisher(Image, '/camera/depth_map_1', 10)
+        self.depth_publisher_0 = self.create_publisher(Image, self.depth_publisher_0, 10)
+        self.depth_publisher_1 = self.create_publisher(Image, self.depth_publisher_1, 10)
 
         # Stereo Matching Parameters
         self.num_disparities = 64  # Number of disparities (must be multiple of 16)

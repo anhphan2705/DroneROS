@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from msgs.msg import BoundingBoxes, BoundingBox
+from msgs.msg import TrackedBoundingBoxes, TrackedBoundingBox
 from cv_bridge import CvBridge
 import numpy as np
 
@@ -22,8 +22,8 @@ class ObjectDepthFusionNode(Node):
         self.depth_frame = None
 
         self.depth_sub = self.create_subscription(Image, self.depth_topic, self.depth_callback, 10)
-        self.bbox_sub = self.create_subscription(BoundingBoxes, self.detection_topic, self.bbox_callback, 10)
-        self.pub = self.create_publisher(BoundingBoxes, self.output_topic, 10)
+        self.bbox_sub = self.create_subscription(TrackedBoundingBoxes, self.detection_topic, self.bbox_callback, 10)
+        self.pub = self.create_publisher(TrackedBoundingBoxes, self.output_topic, 10)
 
         self.get_logger().info("ObjectDepthFusionNode initialized.")
 
@@ -33,12 +33,12 @@ class ObjectDepthFusionNode(Node):
         except Exception as e:
             self.get_logger().error(f"Depth CVBridge error: {e}")
 
-    def bbox_callback(self, msg: BoundingBoxes):
+    def bbox_callback(self, msg: TrackedBoundingBoxes):
         if self.depth_frame is None:
             self.get_logger().warn("No depth frame received yet.")
             return
 
-        depth_boxes = BoundingBoxes()
+        depth_boxes = TrackedBoundingBoxes()
         depth_boxes.header = msg.header
 
         for bbox in msg.boxes:
