@@ -33,7 +33,7 @@ class YOLOv8InferenceNode(Node):
         if ext == '.pt':
             # PyTorch model: can train, val, predict, export
             self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-            self.model = YOLO(self.model_path).to(self.device)
+            self.model = YOLO(self.model_path, task='detect').to(self.device)
         elif ext == '.onnx':
             # ONNX model: only supports predict/val; specify task and let ORT handle providers
             self.device = 0 if torch.cuda.is_available() else 'cpu'
@@ -41,7 +41,7 @@ class YOLOv8InferenceNode(Node):
         elif ext in ['.engine', '.trt']:
             # TensorRT engine—YOLO will use TRTExecutionProvider under the hood
             self.device = 'cuda:0'
-            self.model  = YOLO(self.model_path)
+            self.model  = YOLO(self.model_path, task='detect')
         else:
             self.get_logger().error(f"Unsupported model format: {ext}")
             return
@@ -92,7 +92,7 @@ class YOLOv8InferenceNode(Node):
                 continue
 
             det = BoundingBox()
-            det.id = i
+            det.id = cls
             det.class_id = cls
             det.classification_id = -1
             det.class_name = self.class_names[cls]

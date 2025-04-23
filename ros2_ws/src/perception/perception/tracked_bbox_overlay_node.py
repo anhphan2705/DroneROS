@@ -43,19 +43,25 @@ class TrackedBBoxOverlayNode(Node):
 
         for box in tracked_msg.boxes:
             x1, y1, x2, y2 = box.x_min, box.y_min, box.x_max, box.y_max
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 128, 255), 2)
 
-            label = f"tID: {box.track_id} | ID: {box.class_name}:{box.id:02d}"
+            label = f"tID: {box.track_id} | ID: {box.class_name}:{box.id:02d} \n"
             # label += f" | Conf: {box.confidence_interval[i]:.2f}"
             if box.classification_id > 0:
                 label += f' | cID: {box.classification_id:.2f} |'
             if box.depth > 0:
-                label += f' ({box.depth:.2f}m)'
+                label += f' ({box.depth:.1f}m)'
             if box.speed_mps > 0:
-                label += f' ({box.speed_mps:.2f}m/s)'
-
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 128, 255), 2)
-            cv2.putText(frame, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                label += f' ({box.speed_mps:.1f}m/s)'
+            
+            lines = label.split('\n')
+            font     = cv2.FONT_HERSHEY_SIMPLEX
+            scale    = 0.5
+            thickness= 1
+            line_h   = int(30 * scale)
+            for i, line in enumerate(reversed(lines)):
+                y = y1 - 8 - (i * line_h)
+                cv2.putText(frame, line, (x1, y), font, scale, (255,255,255), thickness, cv2.LINE_AA)
 
         self.get_logger().info(f"Overlayed {len(tracked_msg.boxes)} tracked boxes on image.")
         overlay_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')

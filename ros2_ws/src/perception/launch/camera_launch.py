@@ -1,6 +1,22 @@
 import launch
 import launch_ros.actions
+from ament_index_python.packages import get_package_share_directory
+import os
 
+calib_pkg_share = get_package_share_directory('calibration')
+
+calib_file_0 = os.path.join(
+    calib_pkg_share,
+    'calibrated_params',
+    'stereo_calibration_params_pair_0_2025-03-18_01-59-32.yml'
+)
+
+calib_file_1 = os.path.join(
+    calib_pkg_share,
+    'calibrated_params',
+    'stereo_calibration_params_pair_1_2025-03-18_02-00-20.yml'
+)
+    
 def generate_launch_description():
     camera_node = launch_ros.actions.Node(
         package='perception',
@@ -200,6 +216,30 @@ def generate_launch_description():
     #         {'output_topic': '/yolo/detections_1/depth'}
     #     ]
     # )
+    
+    speed_estimator_node_0 = launch_ros.actions.Node(
+        package='perception',
+        executable='speed_estimator_node',
+        name='speed_estimator_node_0',
+        output='screen',
+        parameters=[
+            {'subscribe_topic': '/yolo/detections_0/tracked/classified/light/depth'},
+            {'calibration_file': calib_file_0},
+            {'publish_topic': '/yolo/detections_0/tracked/classified/light/depth/speed'}
+        ]
+    )
+    
+    # speed_estimator_node_0 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='speed_estimator_node',
+    #     name='speed_estimator_node_0',
+    #     output='screen',
+    #     parameters=[
+    #         {'subscribe_topic': '/yolo/detections_1/tracked/classified/light/depth'},
+    #         {'calibration_file': calib_file_1},
+    #         {'publish_topic': '/yolo/detections_1/tracked/classified/light/depth/speed'}
+    #     ]
+    # )
 
     id_mapper_node = launch_ros.actions.Node(
         package='perception',
@@ -208,8 +248,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'mapping_file': 'id_map.yaml'},
-            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth'},
-            {'map_topic': '/yolo/detections_0/tracked/classified/light/depth/mapped'}
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/speed'},
+            {'map_topic': '/yolo/detections_0/tracked/classified/light/depth/speed/mapped'}
         ]
     )
 
@@ -220,7 +260,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'image_topic': '/camera/rectified/split_0'},
-            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/mapped'},
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/speed/mapped'},
             {'output_topic': '/perception_img_visualizer_0'}
         ]
     )
@@ -257,6 +297,8 @@ def generate_launch_description():
         traffic_light_classification,
         object_depth_fusion_node_0,
         # object_depth_fusion_node_1,
+        speed_estimator_node_0,
+        # speed_estimator_node_1,
         id_mapper_node,
         tracked_overlay_0,
         # tracked_overlay_1,

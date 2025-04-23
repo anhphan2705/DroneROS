@@ -130,7 +130,7 @@ class ByteTrackNode(Node):
             class_name = self.class_map.get(class_id, "unknown")
 
             tracked_box = TrackedBoundingBox()
-            tracked_box.id = int(track_id)
+            tracked_box.id = int(class_id)
             tracked_box.track_id = int(track_id)
             tracked_box.class_id = int(class_id)
             tracked_box.classification_id = int(-1)
