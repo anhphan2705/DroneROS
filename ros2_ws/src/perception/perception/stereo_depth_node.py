@@ -15,41 +15,28 @@ class StereoDepthNode(Node):
         super().__init__('stereo_depth_node')
         self.br = CvBridge()
 
-        self.declare_parameter('sub_left_0', '/camera/rectified/split_0')
-        self.declare_parameter('sub_right_0', '/camera/rectified/split_1')
-        self.declare_parameter('sub_left_1', '/camera/rectified/split_2')
-        self.declare_parameter('sub_right_1', '/camera/rectified/split_3')
-        self.declare_parameter('depth_publisher_0', '/camera/depth_map_0')
-        self.declare_parameter('depth_publisher_1', '/camera/depth_map_1')
+        self.declare_parameter('sub_left', '/camera/rectified/split_0')
+        self.declare_parameter('sub_right', '/camera/rectified/split_1')
+        self.declare_parameter('depth_publisher', '/camera/depth_map_0')
         self.declare_parameter('horizontal_fov_deg', 66.0)
         self.declare_parameter('baseline_m', 0.05)  # 50 mm
         
-        self.sub_left_0 = self.get_parameter('sub_left_0').get_parameter_value().string_value
-        self.sub_right_0 = self.get_parameter('sub_right_0').get_parameter_value().string_value
-        self.sub_left_1 = self.get_parameter('sub_left_1').get_parameter_value().string_value
-        self.sub_right_1 = self.get_parameter('sub_right_1').get_parameter_value().string_value
-        self.depth_publisher_0 = self.get_parameter('depth_publisher_0').get_parameter_value().string_value
-        self.depth_publisher_1 = self.get_parameter('depth_publisher_1').get_parameter_value().string_value
+        self.sub_left = self.get_parameter('sub_left').get_parameter_value().string_value
+        self.sub_right = self.get_parameter('sub_right').get_parameter_value().string_value
+        self.depth_publisher = self.get_parameter('depth_publisher').get_parameter_value().string_value
         self.horizontal_fov_deg = self.get_parameter('horizontal_fov_deg').value
         self.baseline_m = self.get_parameter('baseline_m').value        
         
         # Create subscribers for each stereo pair
-        self.sub_left_0 = Subscriber(self, Image, self.sub_left_0)
-        self.sub_right_0 = Subscriber(self, Image, self.sub_right_0)
-        self.sub_left_1 = Subscriber(self, Image, self.sub_left_1)
-        self.sub_right_1 = Subscriber(self, Image, self.sub_right_1)
-
+        self.sub_left = Subscriber(self, Image, self.sub_left)
+        self.sub_right = Subscriber(self, Image, self.sub_right)
 
         # Synchronize left & right images for each pair
-        self.sync_0 = ApproximateTimeSynchronizer([self.sub_left_0, self.sub_right_0], queue_size=5, slop=0.05)
-        self.sync_0.registerCallback(self.process_stereo, 0)
-
-        self.sync_1 = ApproximateTimeSynchronizer([self.sub_left_1, self.sub_right_1], queue_size=5, slop=0.05)
-        self.sync_1.registerCallback(self.process_stereo, 1)
+        self.sync = ApproximateTimeSynchronizer([self.sub_left, self.sub_right], queue_size=5, slop=0.05)
+        self.sync.registerCallback(self.process_stereo, 0)
 
         # Publishers for depth maps
-        self.depth_publisher_0 = self.create_publisher(Image, self.depth_publisher_0, 10)
-        self.depth_publisher_1 = self.create_publisher(Image, self.depth_publisher_1, 10)
+        self.depth_publisher = self.create_publisher(Image, self.depth_publisher, 10)
 
         # Stereo Matching Parameters
         self.num_disparities = 64  # Number of disparities (must be multiple of 16)
@@ -124,10 +111,7 @@ class StereoDepthNode(Node):
         depth_msg = self.br.cv2_to_imgmsg(depth_map, encoding='32FC1')
         depth_msg.header = left_msg.header
 
-        if pair_id == 0:
-            self.depth_publisher_0.publish(depth_msg)
-        else:
-            self.depth_publisher_1.publish(depth_msg)
+        self.depth_publisher.publish(depth_msg)
 
 def main(args=None):
     rclpy.init(args=args)

@@ -42,23 +42,35 @@ def generate_launch_description():
         output='screen',
     )
 
-    stereo_depth_node = launch_ros.actions.Node(
+    stereo_depth_node_0 = launch_ros.actions.Node(
         package='perception',
         executable='stereo_depth_node',
         name='stereo_depth_node',
         output='screen',
         parameters=[
-            {'sub_left_0': '/camera/rectified/split_0'},
-            {'sub_right_0': '/camera/rectified/split_1'},
-            {'sub_left_1': '/camera/rectified/split_2'},
-            {'sub_right_1': '/camera/rectified/split_3'},
-            {'depth_publisher_0': '/camera/depth_map_0'},
-            {'depth_publisher_1': '/camera/depth_map_1'},
+            {'sub_left': '/camera/rectified/split_0'},
+            {'sub_right': '/camera/rectified/split_1'},
+            {'depth_publisher': '/camera/depth_map_0'},
             {'horizontal_fov_deg': 66.0},
             {'baseline_m': 0.05},
             
         ]
     )
+    
+    # stereo_depth_node_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='stereo_depth_node',
+    #     name='stereo_depth_node',
+    #     output='screen',
+    #     parameters=[
+    #         {'sub_left': '/camera/rectified/split_2'},
+    #         {'sub_right': '/camera/rectified/split_3'},
+    #         {'depth_publisher': '/camera/depth_map_1'},
+    #         {'horizontal_fov_deg': 66.0},
+    #         {'baseline_m': 0.05},
+            
+    #     ]
+    # )
 
     yolov8_detection_0 = launch_ros.actions.Node(
         package='perception',
@@ -231,7 +243,8 @@ def generate_launch_description():
         delayed_manual_focus_node,
         sync_capture_node,
         camera_rectification_node,
-        stereo_depth_node,
+        stereo_depth_node_0,
+        # stereo_depth_node_1,
         yolov8_detection_0,
         # yolov8_detection_1,
         # overlay_0,
@@ -243,6 +256,7 @@ def generate_launch_description():
         classification_node_id11,
         traffic_light_classification,
         object_depth_fusion_node_0,
+        # object_depth_fusion_node_1,
         id_mapper_node,
         tracked_overlay_0,
         # tracked_overlay_1,
