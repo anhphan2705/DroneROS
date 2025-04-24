@@ -1,119 +1,152 @@
 # config/id_mapping.yaml
 
-# 0xx = IDs of non classified object
-# 1xx = IDs of traffic signs
-# 2xx = IDs of traffic light states
+# -01 = IDs of unknowns/errors
+#  0x = IDs of non classified object
+#  1x = IDs of traffic signs
+#  2x = IDs of traffic light states
+
 mappings:
 
-  # 1) Non‑classified objects (0xx), outputs 0-9
-  - id: 000
+  # 1) Unknown / Error IDs will all mapped to -01
+  - id: -01
+    class_id: -1
+    classification_id: -1
+    class_name: unknown
+
+  - id: -01
+    class_id: 6
+    classification_id: -1
+    class_name: trafficLight-error
+
+  # 2) Non‑classified objects (0x), outputs # {0: 'Deer', 1: 'barrel', 2: 'traffic-signs', 3: 'biker', 4: 'pedestrian', 5: 'car', 6: 'trafficLight', 7: 'railroad-crossings'}
+  - id: 00
     class_id: 0
     classification_id: -1
     class_name: deer
 
-  - id: 001
+  - id: 01
     class_id: 1
     classification_id: -1
     class_name: barrel
 
-  - id: 003
+  - id: 03
     class_id: 3
     classification_id: -1
     class_name: biker
 
-  - id: 004
+  - id: 04
     class_id: 4
-    classification_id: -1
-    class_name: car
-
-  - id: 005
-    class_id: 5
     classification_id: -1
     class_name: pedestrian
 
-  - id: 006
+  - id: 05
+    class_id: 5
+    classification_id: -1
+    class_name: car
+
+  - id: 06
     class_id: 6
     classification_id: -1
     class_name: trafficLight
 
-  - id: 007
+  - id: 07
     class_id: 7
-    classification_id: -1
-    class_name: railroad-crossing-down
-
-  - id: 008
-    class_id: 8
     classification_id: -1
     class_name: railroad-crossings
 
-  # 2) Traffic‑signs (1xx), classifier outputs 0–8
-  - id: 100
+  # 3) Traffic‑signs (1x), classifier outputs 0–8
+  - id: 10
     class_id: 2
     classification_id: 0
     class_name: left_only
 
-  - id: 101
+  - id: 11
     class_id: 2
     classification_id: 1
     class_name: no_entry
 
-  - id: 102
+  - id: 12
     class_id: 2
     classification_id: 2
     class_name: no_left
 
-  - id: 103
+  - id: 13
     class_id: 2
     classification_id: 3
     class_name: no_right_turn
 
-  - id: 104
+  - id: 14
     class_id: 2
     classification_id: 4
     class_name: right_turn_only
 
-  - id: 105
+  - id: 15
     class_id: 2
     classification_id: 5
     class_name: road_closed
 
-  - id: 106
+  - id: 16
     class_id: 2
     classification_id: 6
     class_name: speed_limit_25
 
-  - id: 107
+  - id: 17
     class_id: 2
     classification_id: 7
     class_name: stop_sign
 
-  - id: 108
+  - id: 18
     class_id: 2
     classification_id: 8
     class_name: yield_sign
 
-  # 3) Traffic‑lights (2xx), classifier outputs 0–4
-  - id: 200
+  # 4) Traffic‑lights (2x), classifier outputs 0–9
+  - id: 20
     class_id: 6
     classification_id: 0
-    class_name: off
+    class_name: trafficLight-off
 
-  - id: 201
+  - id: 21
     class_id: 6
     classification_id: 1
-    class_name: red
+    class_name: trafficLight-red
 
-  - id: 202
+  - id: 22
     class_id: 6
     classification_id: 2
-    class_name: yellow
+    class_name: trafficLight-yellow
 
-  - id: 203
+  - id: 23
     class_id: 6
     classification_id: 3
-    class_name: green
+    class_name: trafficLight-green
 
-  - id: 204
+  - id: 24
     class_id: 6
     classification_id: 4
-    class_name: failed
+    class_name: trafficLight-green_forward
+
+  - id: 25
+    class_id: 6
+    classification_id: 5
+    class_name: trafficLight-green_left
+
+  - id: 26
+    class_id: 6
+    classification_id: 6
+    class_name: trafficLight-yellow_left
+
+  - id: 27
+    class_id: 6
+    classification_id: 7
+    class_name: trafficLight-red_left
+
+  - id: 28
+    class_id: 6
+    classification_id: 8
+    class_name: trafficLight-flashing_yellow
+
+  - id: 29
+    class_id: 6
+    classification_id: 9
+    class_name: trafficLight-flashing_red

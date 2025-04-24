@@ -91,7 +91,7 @@ class StereoDepthNode(Node):
                 # numpasses=self.num_pass,
             )
 
-            disparity_float = disparity_vpi.convert(vpi.Format.F32).cpu() / 64
+            disparity_float = disparity_vpi.convert(vpi.Format.F32).cpu() / 32.0
 
         # self.get_logger().info(
         #     f"Disparity stats: min={np.min(disparity_float):.2f}, max={np.max(disparity_float):.2f}, mean={np.mean(disparity_float):.2f}"
