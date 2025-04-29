@@ -4,6 +4,8 @@ import glob
 
 package_name = 'perception'
 model_files = glob.glob('resource/models/*')
+calibrated_params_dir = 'perception/calibrated_params'
+calibration_files = glob.glob(os.path.join(calibrated_params_dir, '*.yml')) if os.path.exists(calibrated_params_dir) else []
 
 setup(
     name=package_name,
@@ -18,6 +20,7 @@ setup(
             'launch/visualizer_launch.py',
         ]),
         (os.path.join('share', package_name, 'models'), model_files),
+        (os.path.join('share', package_name, 'calibrated_params'), calibration_files),
     ],
     install_requires=['setuptools', 'rosidl_runtime_py'],
     zip_safe=True,
@@ -45,6 +48,7 @@ setup(
             'traffic_light_classification_node = perception.traffic_light_classification_node:main',
             'speed_estimator_node = perception.speed_estimator_node:main',
             'id_mapper_node = perception.id_mapper_node:main',
+            'camera_rectification_node = perception.camera_rectification_node:main',
         ],
     },
 )

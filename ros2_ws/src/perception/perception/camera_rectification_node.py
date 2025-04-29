@@ -18,7 +18,7 @@ class RectificationNode(Node):
         super().__init__('camera_rectification_node')
         self.br = CvBridge()
 
-        pkg_dir = get_package_share_directory('calibration')
+        pkg_dir = get_package_share_directory('perception')
         self.calib_dir = os.path.join(pkg_dir, 'calibrated_params')
 
         # maps[pair_id] = {'left': (mapX,mapY), 'right': (...)}
@@ -38,7 +38,6 @@ class RectificationNode(Node):
             rclpy.shutdown()
             return
 
-        # QoS: drop old frames, best‐effort
         qos = QoSProfile(
             depth=1,
             reliability=QoSReliabilityPolicy.RELIABLE,

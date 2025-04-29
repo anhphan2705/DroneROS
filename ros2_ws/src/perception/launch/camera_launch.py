@@ -3,7 +3,7 @@ import launch_ros.actions
 from ament_index_python.packages import get_package_share_directory
 import os
 
-calib_pkg_share = get_package_share_directory('calibration')
+calib_pkg_share = get_package_share_directory('perception')
 
 calib_file_0 = os.path.join(
     calib_pkg_share,
@@ -52,7 +52,7 @@ def generate_launch_description():
     )
 
     camera_rectification_node = launch_ros.actions.Node(
-        package='calibration',
+        package='perception',
         executable='camera_rectification_node',
         name='camera_rectification_node',
         output='screen',

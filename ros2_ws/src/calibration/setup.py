@@ -29,7 +29,6 @@ setup(
     entry_points={
         'console_scripts': [
             'stereo_calibration_node = calibration.stereo_calibration_node:main',
-            'camera_rectification_node = calibration.camera_rectification_node:main',
         ],
     },
 )
