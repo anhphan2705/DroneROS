@@ -51,12 +51,29 @@ def generate_launch_description():
         actions=[manual_focus_node]
     )
 
-    camera_rectification_node = launch_ros.actions.Node(
+    camera_rectification_node_0 = launch_ros.actions.Node(
         package='perception',
         executable='camera_rectification_node',
-        name='camera_rectification_node',
-        output='screen',
+        name='camera_rectification_node_0',
+        parameters=[
+            {'left_image_topic': '/camera/image_raw/split_0'},
+            {'right_image_topic': '/camera/image_raw/split_1'},
+            {'calibration_file': calib_file_0},
+            {'output_prefix': '/camera/rectified_0'}
+        ]
     )
+
+    # camera_rectification_node_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='camera_rectification_node',
+    #     name='camera_rectification_node_1',
+    #     parameters=[
+    #         {'left_image_topic': '/camera/image_raw/split_2'},
+    #         {'right_image_topic': '/camera/image_raw/split_3'},
+    #         {'calibration_file': calib_file_1},
+    #         {'output_prefix': '/camera/rectified'}
+    #     ]
+    # )
 
     stereo_depth_node_0 = launch_ros.actions.Node(
         package='perception',
@@ -64,12 +81,10 @@ def generate_launch_description():
         name='stereo_depth_node',
         output='screen',
         parameters=[
-            {'sub_left': '/camera/rectified/split_0'},
-            {'sub_right': '/camera/rectified/split_1'},
-            {'depth_publisher': '/camera/depth_map_0'},
-            {'horizontal_fov_deg': 66.0},
-            {'baseline_m': 0.05},
-            
+            {'sub_left': '/camera/rectified_0/left'},
+            {'sub_right': '/camera/rectified_0/right'},
+            {'depth_publisher': '/camera/rectified_0/depth_map'},
+            {'calibration_file': calib_file_0},
         ]
     )
     
@@ -95,7 +110,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'model_path': 'yolov8s_fp16.engine'},
-            {'image_topic': '/camera/rectified/split_0'},
+            {'image_topic': '/camera/rectified_0/left'},
             {'detection_topic': '/yolo/detections_0'}
         ]
     )
@@ -144,7 +159,7 @@ def generate_launch_description():
         parameters=[
             {'input_topic': '/yolo/detections_0'},
             {'output_topic': '/yolo/detections_0/tracked'},
-            {'image_topic': '/camera/rectified/split_0'},
+            {'image_topic': '/camera/rectified_0/left'},
             {'horizontal_fov_deg': 66.0},
             {'vertical_fov_deg': 49.5},
         ]
@@ -171,7 +186,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'tracked_topic': '/yolo/detections_0/tracked'},
-            {'image_topic': '/camera/rectified/split_0'},
+            {'image_topic': '/camera/rectified_0/left'},
             {'classifier_model_path': 'sign_classification_model.pt'},
             {'input_size': [320, 320]},  # [0, 0] for dynamic crop sizes
             {'class_ids_to_classify': [11]},  # e.g. [1, 2, 3]
@@ -186,7 +201,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'tracked_topic': '/yolo/detections_0/tracked/classified'},
-            {'image_topic': '/camera/rectified/split_0'},
+            {'image_topic': '/camera/rectified_0/left'},
             {'input_size': [0, 0]},
             {'class_ids_to_classify': [9]},  # e.g. [1, 2, 3]
             {'classification_topic': '/yolo/detections_0/tracked/classified/light'},
@@ -200,7 +215,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'detection_topic': '/yolo/detections_0/tracked/classified/light'},
-            {'depth_topic': '/camera/depth_map_0'},
+            {'depth_topic': '/camera/rectified_0/depth_map'},
             {'output_topic': '/yolo/detections_0/tracked/classified/light/depth'}
         ]
     )
@@ -259,7 +274,7 @@ def generate_launch_description():
         name='tracked_overlay_0',
         output='screen',
         parameters=[
-            {'image_topic': '/camera/rectified/split_0'},
+            {'image_topic': '/camera/rectified_0/left'},
             {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/speed/mapped'},
             {'output_topic': '/perception_img_visualizer_0'}
         ]
@@ -282,7 +297,8 @@ def generate_launch_description():
         camera_splitter_node,
         delayed_manual_focus_node,
         sync_capture_node,
-        camera_rectification_node,
+        camera_rectification_node_0,
+        # camera_rectification_node_1,
         stereo_depth_node_0,
         # stereo_depth_node_1,
         yolov8_detection_0,
