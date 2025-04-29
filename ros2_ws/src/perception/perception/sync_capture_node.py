@@ -49,7 +49,7 @@ class SyncCaptureNode(Node):
         # Set up an approximate time synchronizer for all camera subscribers.
         self.sync = ApproximateTimeSynchronizer(list(self.subscribers.values()),
                                                 queue_size=10,
-                                                slop=0.05)
+                                                slop=0.01)
         self.sync.registerCallback(self.sync_callback)
 
         # This variable holds the last synchronized set of images (as ROS messages).

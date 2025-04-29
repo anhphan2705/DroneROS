@@ -1,173 +1,122 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-import glob
-import os
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
+from rclpy.executors import MultiThreadedExecutor
+
+import glob, os
 import numpy as np
 import cv2
-import vpi
+
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from functools import partial
 from ament_index_python.packages import get_package_share_directory
-from rclpy.executors import MultiThreadedExecutor
 
 class RectificationNode(Node):
     def __init__(self):
         super().__init__('camera_rectification_node')
         self.br = CvBridge()
-        
-        package_share_dir = get_package_share_directory('calibration')
-        self.calibration_dir = os.path.join(package_share_dir, "calibrated_params")
 
-        # Dictionaries to store VPI warp maps
-        self.rectification_maps = {}
-        self.calibrated_pairs = {0: False, 1: False}
+        pkg_dir = get_package_share_directory('calibration')
+        self.calib_dir = os.path.join(pkg_dir, 'calibrated_params')
 
-        # Load calibration for both stereo pairs
-        success0 = self.apply_latest_calibration(0)
-        success1 = self.apply_latest_calibration(1)
-
-        if not success0 and not success1:
-            raise RuntimeError("No valid calibration data found for any stereo pair. Exiting.")
-
-        # Image publishers
-        self.image_publishers = {}
-
-        # Mapping of topics to stereo pairs
+        # maps[pair_id] = {'left': (mapX,mapY), 'right': (...)}
+        self.maps = {}
         self.topic_to_pair = {
-            '/camera/image_raw/split_0': (0, "left"),
-            '/camera/image_raw/split_1': (0, "right"),
-            '/camera/image_raw/split_2': (1, "left"),
-            '/camera/image_raw/split_3': (1, "right"),
+            '/camera/image_raw/split_0': (0, 'left'),
+            '/camera/image_raw/split_1': (0, 'right'),
+            '/camera/image_raw/split_2': (1, 'left'),
+            '/camera/image_raw/split_3': (1, 'right'),
         }
 
-        # Subscribe and create publishers
-        for topic in self.topic_to_pair.keys():
+        # load both stereo pairs
+        ok0 = self._load_maps(0)
+        ok1 = self._load_maps(1)
+        if not (ok0 and ok1):
+            self.get_logger().error('Failed to load calibration for one or more pairs')
+            rclpy.shutdown()
+            return
+
+        # QoS: drop old frames, best‐effort
+        qos = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.VOLATILE
+        )
+
+        # subscribe & publisher dict
+        self.pubs = {}
+        for topic, (pid, side) in self.topic_to_pair.items():
             self.create_subscription(
                 Image, topic,
-                partial(self.image_callback, topic=topic), 10
+                partial(self.image_cb, topic=topic),
+                qos_profile=qos
             )
-            rect_topic = f"/camera/rectified/{topic.split('/')[-1]}"
-            self.image_publishers[topic] = self.create_publisher(Image, rect_topic, 10)
-            self.get_logger().info(f"Subscribed to {topic}, publishing rectified images on {rect_topic}")
+            rect_topic = f'/camera/rectified/{topic.split("/")[-1]}'
+            self.pubs[topic] = self.create_publisher(Image, rect_topic, qos_profile=qos)
+            self.get_logger().info(f'Rectify: {topic} → {rect_topic}')
 
-        self.get_logger().info("RectificationNode initialized!")
-
-    def apply_latest_calibration(self, pair_id):
-        """ Loads and applies the latest calibration file if available. """
-        search_pattern = os.path.join(self.calibration_dir, f"stereo_calibration_params_pair_{pair_id}_*.yml")
-        files = sorted(glob.glob(search_pattern), reverse=True)
-
+    def _load_maps(self, pair_id: int) -> bool:
+        """Load stereo_map_* arrays from latest YAML for given pair."""
+        pattern = os.path.join(
+            self.calib_dir,
+            f'stereo_calibration_params_pair_{pair_id}_*.yml'
+        )
+        files = sorted(glob.glob(pattern), reverse=True)
         if not files:
-            self.get_logger().warn(f"No calibration file found for stereo pair {pair_id}. Please recalibrate.")
-            return False
-        
-        latest_file = files[0]
-        self.get_logger().info(f"Loading calibration file: {latest_file}")
-
-        # Read calibration parameters
-        cv_file = cv2.FileStorage(latest_file, cv2.FILE_STORAGE_READ)
-        if not cv_file.isOpened():
-            self.get_logger().error(f"Failed to open calibration file: {latest_file}")
+            self.get_logger().warn(f'No calib file for pair {pair_id}')
             return False
 
-        # Read camera parameters
-        frame_size = cv_file.getNode("frame_size").mat()
-        camera_matrix_left = cv_file.getNode("camera_matrix_left").mat()
-        dist_coeffs_left = cv_file.getNode("dist_coeffs_left").mat()
-        camera_matrix_right = cv_file.getNode("camera_matrix_right").mat()
-        dist_coeffs_right = cv_file.getNode("dist_coeffs_right").mat()
-        rectification_matrix_left = cv_file.getNode("rectification_matrix_left").mat()
-        rectification_matrix_right = cv_file.getNode("rectification_matrix_right").mat()
-        projection_matrix_left = cv_file.getNode("projection_matrix_left").mat()
-        projection_matrix_right = cv_file.getNode("projection_matrix_right").mat()
-
-        cv_file.release()
-
-        if camera_matrix_left is None or camera_matrix_right is None:
-            self.get_logger().warn(f"Calibration file {latest_file} is incomplete. Recalibration needed.")
+        fn = files[0]
+        self.get_logger().info(f'Loading maps from {fn}')
+        fs = cv2.FileStorage(fn, cv2.FILE_STORAGE_READ)
+        if not fs.isOpened():
+            self.get_logger().error(f'Cannot open {fn}')
             return False
 
-        width, height = int(frame_size[0, 0]), int(frame_size[1, 0])
+        # read directly
+        mapLx = fs.getNode('stereo_map_left_x').mat()
+        mapLy = fs.getNode('stereo_map_left_y').mat()
+        mapRx = fs.getNode('stereo_map_right_x').mat()
+        mapRy = fs.getNode('stereo_map_right_y').mat()
+        fs.release()
 
-        stereo_map_left_x, stereo_map_left_y = cv2.initUndistortRectifyMap(
-            camera_matrix_left, dist_coeffs_left, rectification_matrix_left,
-            projection_matrix_left, (width, height), cv2.CV_32FC1
-        )
+        if any(m is None for m in [mapLx, mapLy, mapRx, mapRy]):
+            self.get_logger().error(f'Maps missing in {fn}')
+            return False
 
-        stereo_map_right_x, stereo_map_right_y = cv2.initUndistortRectifyMap(
-            camera_matrix_right, dist_coeffs_right, rectification_matrix_right,
-            projection_matrix_right, (width, height), cv2.CV_32FC1
-        )
-        
-        with vpi.Backend.PVA:
-            vpi_left_map = vpi.WarpMap(vpi.WarpGrid((width, height)))
-            vpi_right_map = vpi.WarpMap(vpi.WarpGrid((width, height)))
-
-            left_remap = vpi.asimage((stereo_map_left_x, stereo_map_left_y))
-            right_remap = vpi.asimage((stereo_map_right_x, stereo_map_right_y))
-
-        # Store rectification maps
-        self.rectification_maps[pair_id] = {
-            "left": (vpi_left_map, left_remap),
-            "right": (vpi_right_map, right_remap)
+        self.maps[pair_id] = {
+            'left':  (mapLx, mapLy),
+            'right': (mapRx, mapRy),
         }
-
-        self.calibrated_pairs[pair_id] = True
-        self.get_logger().info(f"Applied calibration from {latest_file} for stereo pair {pair_id}.")
         return True
 
-    def image_callback(self, msg, topic):
-        """ Apply rectification using VPI Warp Remap. """
-        pair_side = self.topic_to_pair.get(topic, None)
-        if pair_side is None:
-            self.get_logger().warn(f"Received image on unknown topic: {topic}")
-            return
-
-        pair_id, side = pair_side
-
-        if not self.calibrated_pairs.get(pair_id, False):
-            self.get_logger().warn(f"Calibration not available for pair {pair_id}. Skipping rectification.")
-            return
+    def image_cb(self, msg: Image, topic: str):
+        pid, side = self.topic_to_pair[topic]
+        mapX, mapY = self.maps[pid][side]
 
         try:
-            cv_image = self.br.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_img = self.br.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except CvBridgeError as e:
-            self.get_logger().error(f"Error converting image: {e}")
+            self.get_logger().error(f'CvBridge error: {e}')
             return
 
-        # Convert to VPI Image
-        with vpi.Backend.CUDA:
-            vpi_image = vpi.asimage(cv_image)
-            warp_map, _ = self.rectification_maps[pair_id][side] 
+        # single cpu remap
+        rect = cv2.remap(cv_img, mapX, mapY, interpolation=cv2.INTER_LINEAR)
 
-            # Apply rectification using VPI
-            rectified_vpi = vpi_image.remap(warp_map)
-
-            # Convert back to numpy
-            rectified_image = rectified_vpi.cpu()
-
-        # Convert rectified image back to ROS 2 Image message
-        rect_msg = self.br.cv2_to_imgmsg(rectified_image, encoding='bgr8')
-        rect_msg.header = msg.header
-
-        publisher = self.image_publishers.get(topic, None)
-        if publisher:
-            publisher.publish(rect_msg)
+        # back to ROS Image
+        out = self.br.cv2_to_imgmsg(rect, encoding='bgr8')
+        out.header = msg.header
+        self.pubs[topic].publish(out)
 
 def main(args=None):
     rclpy.init(args=args)
-    
-    # Use MultiThreadedExecutor for parallel processing
-    executor = MultiThreadedExecutor()
     node = RectificationNode()
+    executor = MultiThreadedExecutor()
     executor.add_node(node)
-
     try:
         executor.spin()
-    except RuntimeError as e:
-        rclpy.get_logger("camera_rectification_node").error(str(e))
     finally:
         rclpy.shutdown()
 

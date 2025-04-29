@@ -4,6 +4,9 @@ from rcl_interfaces.msg import SetParametersResult
 from msgs.msg import FocusStatus
 from perception.focus_tools.focuser import Focuser
 
+# ros2 param set /manual_focus_node focus_value 300
+# ros2 param set /manual_focus_node focus_interval 5.0
+
 class ManualFocusNode(Node):
     def __init__(self):
         super().__init__('manual_focus_node')

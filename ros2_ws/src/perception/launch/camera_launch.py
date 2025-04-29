@@ -8,7 +8,7 @@ calib_pkg_share = get_package_share_directory('calibration')
 calib_file_0 = os.path.join(
     calib_pkg_share,
     'calibrated_params',
-    'stereo_calibration_params_pair_0_2025-03-18_01-59-32.yml'
+    'stereo_calibration_params_pair_0_2025-04-28_16-39-56.yml'
 )
 
 calib_file_1 = os.path.join(
