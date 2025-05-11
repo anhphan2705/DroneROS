@@ -49,6 +49,7 @@ setup(
             'speed_estimator_node = perception.speed_estimator_node:main',
             'id_mapper_node = perception.id_mapper_node:main',
             'camera_rectification_node = perception.camera_rectification_node:main',
+            'bag2mp4 = perception.bag2mp4:main',
         ],
     },
 )
