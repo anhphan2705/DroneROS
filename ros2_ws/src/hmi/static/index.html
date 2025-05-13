@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seeker HMI</title>
+  <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+  <header>
+    <h1>Seeker Dashboard</h1>
+    <div id="status-indicator">Status: <span id="status-text">Unknown</span></div>
+  </header>
+
+  <main>
+    <!-- Live video feed -->
+    <section id="video-section">
+      <img id="video-feed" src="/video_feed" alt="Live video feed">
+    </section>
+
+    <!-- Controls -->
+    <section id="controls">
+      <button id="launch-btn">Launch Mission</button>
+      <button id="stop-btn">Stop Mission</button>
+    </section>
+  </main>
+
+  <script src="/static/main.js"></script>
+</body>
+</html>
