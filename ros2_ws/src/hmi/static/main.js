@@ -1,64 +1,110 @@
-// static/main.js
-
 console.log('[HMI] main.js loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[HMI] DOMContentLoaded');
 
-  const sel   = document.getElementById('topic-select');
-  const video = document.getElementById('video-feed');
+  const sel        = document.getElementById('topic-select');
+  const video      = document.getElementById('video-feed');
+  const overlay    = document.getElementById('video-overlay');
+  const launchBtn  = document.getElementById('launch-btn');
+  const stopBtn    = document.getElementById('stop-btn');
+  const statusText = document.getElementById('status-text');
+  const STALE_SEC  = 2;
 
-  if (!sel || !video) {
-    console.error('[HMI] Missing #topic-select or #video-feed!');
+  if (!sel || !video || !overlay || !launchBtn || !stopBtn || !statusText) {
+    console.error('[HMI] missing one or more required elements');
     return;
   }
 
-  // fetch & refresh topics, preserving the current selection
+  //
+  // TOPIC + LIVENESS LOGIC
+  //
   const updateTopics = async () => {
-    console.log('[HMI] fetching /api/topics…');
     let topics = [];
-
     try {
       const res  = await fetch('/api/topics');
-      const body = await res.json();
-      topics     = body.topics || [];
-      console.log('[HMI] got topics:', topics);
-    } catch (err) {
-      console.error('[HMI] failed to fetch /api/topics:', err);
-      return;
+      topics     = (await res.json()).topics || [];
+    } catch (e) {
+      console.error('[HMI] failed to fetch topics', e);
     }
 
-    // 1) remember the old selection
     const prev = sel.value;
-
-    // 2) rebuild the dropdown
     sel.innerHTML = '';
-    if (topics.length === 0) {
-      sel.add(new Option('No feeds available', '', false, false));
-      video.src = '';
+    if (!topics.length) {
+      sel.add(new Option('No feeds available','',false,false));
       return;
     }
-    topics.forEach(t => sel.add(new Option(t, t)));
-
-    // 3) restore old selection if still present, else pick the first
-    const chosen = topics.includes(prev) ? prev : topics[0];
-    sel.value = chosen;
-
-    // 4) immediately update the video
-    console.log('[HMI] setting topic to', chosen);
-    video.src = `/video_feed?topic=${encodeURIComponent(chosen)}`;
+    topics.forEach(t => sel.add(new Option(t,t)));
+    sel.value = topics.includes(prev) ? prev : topics[0];
+    onTopicChange();
   };
 
-  // when the user manually picks a new topic
-  sel.addEventListener('change', () => {
+  const onTopicChange = () => {
     const topic = sel.value;
-    console.log('[HMI] selected topic:', topic);
+    console.log('[HMI] switching to', topic);
     video.src = topic
       ? `/video_feed?topic=${encodeURIComponent(topic)}`
       : '';
-  });
+    checkLiveness();
+  };
 
-  // initial load + periodic refresh
+  const checkLiveness = async () => {
+    const topic = sel.value;
+    if (!topic) {
+      overlay.style.display = 'flex';
+      return;
+    }
+    try {
+      const res        = await fetch(`/api/last_frame?topic=${encodeURIComponent(topic)}`);
+      const { last_frame } = await res.json();
+      const age        = (Date.now()/1000) - last_frame;
+      overlay.style.display = age > STALE_SEC ? 'flex' : 'none';
+    } catch (e) {
+      overlay.style.display = 'flex';
+    }
+  };
+
+  sel.addEventListener('change', onTopicChange);
+
+  //
+  // LAUNCH/STOP + STATUS LOGIC
+  //
+  const updateStatus = async () => {
+    try {
+      const res  = await fetch('/api/status');
+      const data = await res.json();
+      const running = Object.values(data).some(v => v === true);
+      statusText.textContent = running ? 'Running' : 'Idle';
+    } catch (e) {
+      statusText.textContent = 'Error';
+      console.error('[HMI] status fetch error:', e);
+    }
+  };
+
+  const sendCommand = async (endpoint) => {
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name:'mission'})
+      });
+      updateStatus();
+    } catch (e) {
+      console.error('[HMI] command error:', e);
+    }
+  };
+
+  launchBtn.addEventListener('click', () => sendCommand('/api/launch'));
+  stopBtn.addEventListener('click', () => sendCommand('/api/stop'));
+
+  //
+  // INITIALIZE
+  //
   updateTopics();
   setInterval(updateTopics, 5000);
+
+  setInterval(checkLiveness, 1000);
+
+  updateStatus();
+  setInterval(updateStatus, 2000);
 });
