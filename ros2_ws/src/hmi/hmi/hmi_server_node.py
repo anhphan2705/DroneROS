@@ -78,6 +78,19 @@ class Topic(BaseModel):
 class Job(BaseModel):
     name: str
 
+
+def _handle_image(topic: str, msg: RosImage):
+    try:
+        cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+    except Exception as e:
+        logger.debug(f"Skipping topic {topic} (encoding={msg.encoding}): {e}")
+        return
+
+    with frame_lock:
+        topic_frames[topic] = cv_img
+        last_frame_time[topic] = ros_node.get_clock().now().nanoseconds / 1e9
+
+
 def ros_spin():
     rclpy.spin(ros_node)
 
@@ -85,11 +98,10 @@ def ros_spin():
 def on_startup():
     global ros_node
     rclpy.init()
-    ros_node = Node('hmi_api_node')
+    ros_node = Node('hmi_server_node')
 
     for t in settings.default_topics:
         topic_frames[t] = None
-        # initialize with zero (meaning “no frames yet”)
         last_frame_time[t] = 0.0
         sub = ros_node.create_subscription(
             RosImage, t,
@@ -111,18 +123,6 @@ def on_shutdown():
         ros_node.destroy_node()
         rclpy.shutdown()
 
-def _handle_image(topic: str, msg: RosImage):
-    try:
-        cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-    except Exception as e:
-        logger.debug(f"Skipping topic {topic} (encoding={msg.encoding}): {e}")
-        return
-
-    with frame_lock:
-        topic_frames[topic] = cv_img
-        # record ROS time (seconds since ROS epoch/current sim time)
-        last_frame_time[topic] = ros_node.get_clock().now().nanoseconds / 1e9
-
 # ── API ENDPOINTS ───────────────────────────────────────────────────────────────
 @app.get(settings.api_prefix + '/topics', response_model=TopicList)
 def list_topics():
@@ -130,9 +130,6 @@ def list_topics():
 
 @app.get(settings.api_prefix + '/last_frame')
 def last_frame(topic: str = Query(..., description="Topic name")):
-    """
-    Return the ROS timestamp (in seconds) when the last frame was received.
-    """
     ts = last_frame_time.get(topic)
     if ts is None or ts == 0.0:
         raise HTTPException(status_code=404, detail='No frames received yet for this topic')
@@ -173,25 +170,33 @@ def status():
 @app.post(settings.api_prefix + '/launch')
 def launch(job: Job):
     if job.name in processes and processes[job.name].poll() is None:
-        return JSONResponse(status_code=400, content={'error': 'Already running'})
+        raise HTTPException(status_code=400, detail='Already running')
     cmd = [
         'bash', '-lc',
         f"source /opt/ros/humble/setup.bash && source {settings.ros_workspace}/install/setup.bash && ros2 launch perception camera_launch.py"
     ]
-    proc = subprocess.Popen(cmd,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                            preexec_fn=os.setsid)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        preexec_fn=os.setsid
+    )
     processes[job.name] = proc
     logger.info(f'Launched {job.name} (pid {proc.pid})')
-    return {'status': 'launched'}
+    return {'status': 'launched', 'pid': proc.pid}
 
 @app.post(settings.api_prefix + '/stop')
 def stop(job: Job):
     proc = processes.get(job.name)
     if not proc or proc.poll() is not None:
-        return JSONResponse(status_code=400, content={'error': 'Not running'})
-    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        raise HTTPException(status_code=400, detail='Not running')
+    os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        proc.wait()
+    processes.pop(job.name, None)
     logger.info(f'Stopped {job.name}')
     return {'status': 'stopped'}
 

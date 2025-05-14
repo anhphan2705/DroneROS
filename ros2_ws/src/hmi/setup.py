@@ -25,7 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'hmi-server = hmi.app:main',
+            'hmi_server_node = hmi.hmi_server_node:main',
         ],
     },
 )
