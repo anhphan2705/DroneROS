@@ -1,85 +1,64 @@
 // static/main.js
 
-// Polls /api/status every 2 seconds and updates the status badge
-async function updateStatus() {
-  try {
-    const res = await fetch('/api/status');
-    const data = await res.json();
-    const running = Object.values(data).some(v => v === true);
-    document.getElementById('status-text').textContent = running ? 'Running' : 'Idle';
-  } catch (err) {
-    document.getElementById('status-text').textContent = 'Error';
-    console.error('Status fetch error:', err);
-  }
-}
-
-// Sends a POST to /api/launch or /api/stop
-async function sendCommand(endpoint) {
-  try {
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'mission' })
-    });
-    updateStatus();
-  } catch (err) {
-    console.error('Command error:', err);
-  }
-}
+console.log('[HMI] main.js loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('topic-select');
+  console.log('[HMI] DOMContentLoaded');
+
+  const sel   = document.getElementById('topic-select');
   const video = document.getElementById('video-feed');
 
-  // Fetch and render topic options every 5 seconds
-  async function updateTopics() {
-    try {
-      const { topics } = await fetch('/api/topics').then(r => r.json());
-      // clear existing options
-      sel.innerHTML = '';
-      // if no topics
-      if (topics.length === 0) {
-        const opt = document.createElement('option');
-        opt.disabled = true;
-        opt.textContent = 'No feeds available';
-        sel.appendChild(opt);
-        video.src = '';
-        return;
-      }
-      // populate select
-      topics.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        sel.appendChild(opt);
-      });
-      // auto-select first
-      sel.selectedIndex = 0;
-      sel.dispatchEvent(new Event('change'));
-    } catch (e) {
-      console.error('Failed to fetch topics:', e);
-    }
+  if (!sel || !video) {
+    console.error('[HMI] Missing #topic-select or #video-feed!');
+    return;
   }
 
-  // Initial topics fetch & polling
-  updateTopics();
-  setInterval(updateTopics, 5000);
+  // fetch & refresh topics, preserving the current selection
+  const updateTopics = async () => {
+    console.log('[HMI] fetching /api/topics…');
+    let topics = [];
 
-  // When you pick a topic, swap the feed URL
+    try {
+      const res  = await fetch('/api/topics');
+      const body = await res.json();
+      topics     = body.topics || [];
+      console.log('[HMI] got topics:', topics);
+    } catch (err) {
+      console.error('[HMI] failed to fetch /api/topics:', err);
+      return;
+    }
+
+    // 1) remember the old selection
+    const prev = sel.value;
+
+    // 2) rebuild the dropdown
+    sel.innerHTML = '';
+    if (topics.length === 0) {
+      sel.add(new Option('No feeds available', '', false, false));
+      video.src = '';
+      return;
+    }
+    topics.forEach(t => sel.add(new Option(t, t)));
+
+    // 3) restore old selection if still present, else pick the first
+    const chosen = topics.includes(prev) ? prev : topics[0];
+    sel.value = chosen;
+
+    // 4) immediately update the video
+    console.log('[HMI] setting topic to', chosen);
+    video.src = `/video_feed?topic=${encodeURIComponent(chosen)}`;
+  };
+
+  // when the user manually picks a new topic
   sel.addEventListener('change', () => {
     const topic = sel.value;
-    if (topic) {
-      video.src = `/video_feed?topic=${encodeURIComponent(topic)}`;
-    }
+    console.log('[HMI] selected topic:', topic);
+    video.src = topic
+      ? `/video_feed?topic=${encodeURIComponent(topic)}`
+      : '';
   });
 
-  // Wire buttons
-  document.getElementById('launch-btn')
-    .addEventListener('click', () => sendCommand('/api/launch'));
-  document.getElementById('stop-btn')
-    .addEventListener('click', () => sendCommand('/api/stop'));
-
-  // Start status polling
-  updateStatus();
-  setInterval(updateStatus, 2000);
+  // initial load + periodic refresh
+  updateTopics();
+  setInterval(updateTopics, 5000);
 });

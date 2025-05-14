@@ -6,11 +6,12 @@ import threading
 import time
 import logging
 from typing import Dict, Optional
-import numpy as np
 
+import numpy as np
 import cv2
 import rclpy
 from rclpy.node import Node
+from rclpy.subscription import Subscription
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
@@ -22,13 +23,19 @@ from cv_bridge import CvBridge
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 class Settings:
     ros_workspace: str = os.path.expanduser('~/BaseROS/ros2_ws')
-    default_topic: str = '/camera/image_raw'
+    default_topics = [
+        '/camera/image_raw',         # first default feed
+        '/camera/rectified_0/right',  # second default feed
+        '/camera/rectified_0/left',  # second default feed
+    ]
     mjpeg_fps: int = 15               # lowered FPS for stability
-    downscale: float = 1.00          # downscale factor for performance
+    downscale: float = 1.00           # downscale factor for performance
     jpeg_quality: int = 100           # JPEG quality (0-100)
     api_prefix: str = '/api'
     static_prefix: str = '/static'
-    discovery_interval: int = 5      # seconds between topic discovery
+
+    # convenience: the first topic to use when no query param is given
+    default_topic: str = default_topics[0]
 
 settings = Settings()
 
@@ -40,7 +47,7 @@ logger = logging.getLogger('hmi_app')
 app = FastAPI(
     title='Seeker HMI',
     description='Web-based HMI for monitoring and control of drone base station',
-    version='0.3'
+    version='0.4'  # bumped version
 )
 
 # Serve static files under /static
@@ -56,13 +63,20 @@ def index():
 processes: Dict[str, subprocess.Popen] = {}
 ros_node: Optional[Node] = None
 bridge = CvBridge()
+
 # store latest raw frames per topic (CV2 images)
 topic_frames: Dict[str, Optional[np.ndarray]] = {}
 frame_lock = threading.Lock()
 
+# keep track of active subscriptions
+topic_subs: Dict[str, Subscription] = {}
+
 # Data models
 class TopicList(BaseModel):
     topics: list[str]
+
+class Topic(BaseModel):
+    name: str
 
 class Job(BaseModel):
     name: str
@@ -71,41 +85,25 @@ class Job(BaseModel):
 def ros_spin():
     rclpy.spin(ros_node)
 
-# Dynamic discovery of Image topics
-def discover_topics():
-    while rclpy.ok():
-        names_types = ros_node.get_topic_names_and_types()
-        for name, types in names_types:
-            if 'sensor_msgs/msg/Image' in types and name not in topic_frames:
-                topic_frames[name] = None
-                ros_node.create_subscription(
-                    RosImage, name,
-                    lambda msg, t=name: _handle_image(t, msg),
-                    qos_profile=10
-                )
-                logger.info(f'Discovered and subscribed to topic: {name}')
-        time.sleep(settings.discovery_interval)
-
 @app.on_event('startup')
 def on_startup():
     global ros_node
     rclpy.init()
     ros_node = Node('hmi_api_node')
 
-    # Subscribe to default topic first
-    default = settings.default_topic
-    topic_frames[default] = None
-    ros_node.create_subscription(
-        RosImage, default,
-        lambda msg, t=default: _handle_image(t, msg),
-        qos_profile=10
-    )
-    logger.info(f'Initially subscribed to default topic: {default}')
+    # Subscribe to each default topic
+    for t in settings.default_topics:
+        topic_frames[t] = None
+        sub = ros_node.create_subscription(
+            RosImage, t,
+            lambda msg, tn=t: _handle_image(tn, msg),
+            qos_profile=10
+        )
+        topic_subs[t] = sub
+        logger.info(f'Initially subscribed to default topic: {t}')
 
     # Start ROS spin thread
     threading.Thread(target=ros_spin, daemon=True).start()
-    # Start dynamic discovery thread
-    threading.Thread(target=discover_topics, daemon=True).start()
 
 @app.on_event('shutdown')
 def on_shutdown():
@@ -133,8 +131,36 @@ def _handle_image(topic: str, msg: RosImage):
 # ── API ENDPOINTS ───────────────────────────────────────────────────────────────
 @app.get(settings.api_prefix + '/topics', response_model=TopicList)
 def list_topics():
-    """Return all subscribed image topics."""
-    return TopicList(topics=list(topic_frames.keys()))
+    """Return all currently subscribed image topics."""
+    return TopicList(topics=list(topic_subs.keys()))
+
+@app.post(settings.api_prefix + '/subscribe')
+def subscribe_topic(topic: Topic):
+    """Start feeding frames from this Image topic."""
+    t = topic.name
+    if t in topic_subs:
+        return JSONResponse({'status': 'already subscribed'})
+    topic_frames[t] = None
+    sub = ros_node.create_subscription(
+        RosImage, t,
+        lambda msg, tn=t: _handle_image(tn, msg),
+        qos_profile=10
+    )
+    topic_subs[t] = sub
+    logger.info(f'Subscribed to topic: {t}')
+    return {'status': 'subscribed'}
+
+@app.post(settings.api_prefix + '/unsubscribe')
+def unsubscribe_topic(topic: Topic):
+    """Stop feeding frames from this Image topic."""
+    t = topic.name
+    sub = topic_subs.pop(t, None)
+    if sub is None:
+        return JSONResponse({'status': 'not subscribed'}, status_code=400)
+    ros_node.destroy_subscription(sub)
+    topic_frames.pop(t, None)
+    logger.info(f'Unsubscribed from topic: {t}')
+    return {'status': 'unsubscribed'}
 
 @app.get(settings.api_prefix + '/status')
 def status():
@@ -200,7 +226,6 @@ def main():
     try:
         uvicorn.run(app, host='0.0.0.0', port=8080)
     finally:
-        # same loop to SIGINT each proc
         for proc in processes.values():
             if proc.poll() is None:
                 os.killpg(os.getpgid(proc.pid), signal.SIGINT)

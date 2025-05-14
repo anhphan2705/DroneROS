@@ -10,3 +10,26 @@ main { display: flex; flex-direction: column; height: calc(100% - 50px); }
 #controls { padding: 10px; background: #ecf0f1; display: flex; justify-content: center; gap: 20px; }
 #controls button { padding: 10px 20px; font-size: 1rem; border: none; border-radius: 5px; background: #3498db; color: white; cursor: pointer; }
 #controls button:active { background: #2980b9; }
+
+/* ── Topic selector styling ─────────────────────────────────────────────────── */
+#topic-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #ecf0f1;
+}
+
+#topic-selector label {
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+#topic-select {
+  min-width: 20rem;
+  padding: 0.25rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+}
