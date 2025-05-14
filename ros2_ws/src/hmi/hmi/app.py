@@ -25,8 +25,8 @@ class Settings:
     ros_workspace: str = os.path.expanduser('~/BaseROS/ros2_ws')
     default_topics = [
         '/camera/image_raw',
-        '/camera/rectified_0/right',
-        '/camera/rectified_0/left',
+        '/camera/rectified_0/depth_map/depth_vis',
+        '/perception_img_visualizer_0',
     ]
     mjpeg_fps: int = 15
     downscale: float = 1.00

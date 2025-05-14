@@ -103,6 +103,28 @@ def generate_launch_description():
     #     ]
     # )
 
+    depth_viz_0 = launch_ros.actions.Node(
+        package='perception',
+        executable='depth_visualizer_node',
+        name='depth_visualizer_0',
+        output='screen',
+        parameters=[
+            {'depth_topic': '/camera/rectified_0/depth_map'},
+            {'output_topic': '/camera/rectified_0/depth_map/depth_vis'},
+        ]
+    )
+    
+    # depth_viz_1 = launch_ros.actions.Node(
+    #     package='perception',
+    #     executable='depth_visualizer_node',
+    #     name='depth_visualizer_0',
+    #     output='screen',
+    #     parameters=[
+    #         {'depth_topic': '/camera/rectified_1/depth_map'},
+    #         {'output_topic': '/camera/rectified_1/depth_map/depth_vis'},
+    #     ]
+    # )
+    
     yolov8_detection_0 = launch_ros.actions.Node(
         package='perception',
         executable='object_detection_node',
@@ -301,6 +323,8 @@ def generate_launch_description():
         # camera_rectification_node_1,
         stereo_depth_node_0,
         # stereo_depth_node_1,
+        depth_viz_0,
+        # depth_viz_1,
         yolov8_detection_0,
         # yolov8_detection_1,
         # overlay_0,
