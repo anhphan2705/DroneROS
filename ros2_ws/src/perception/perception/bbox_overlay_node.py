@@ -44,7 +44,7 @@ class BBoxOverlayNode(Node):
         for box in boxes_msg.boxes:
             x1, y1, x2, y2 = box.x_min, box.y_min, box.x_max, box.y_max
             
-            label = f"tID: {box.track_id} | ID: {box.class_name}:{box.id:02d}"
+            label = f"ID: {box.class_name}:{box.id:02d}"
 
             # if box.id[i] >= 0:
             #     label += f" | oID: {box.class_name[i]}:{box.class_id[i]:02d}"

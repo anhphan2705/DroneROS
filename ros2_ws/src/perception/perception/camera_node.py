@@ -75,11 +75,12 @@ class Camera:
             ), 
             cv2.CAP_GSTREAMER
         )
+
         if not self.cap.isOpened():
             self.node.get_logger().error("Failed to open camera!")
             self.cap = None
             return
-        
+
         self.frame_reader = FrameReader(self.cap)
         self.frame_reader.daemon = True
         self.frame_reader.start()

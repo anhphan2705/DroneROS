@@ -25,7 +25,7 @@ class CameraSplitterNode(Node):
         # FPS and size tracking
         self.frame_times = [time.time() for _ in range(4)]
         self.frame_sizes = [(0, 0) for _ in range(4)]
-        self.last_fps_publish_time = time.time()
+        self.last_fps_publish_time = time.time()  
 
     def image_callback(self, msg):
         try:

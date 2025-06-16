@@ -172,14 +172,16 @@ class StereoCalibrator:
                 # Optionally display detected corners
                 if self.show_corners:
                     cv.drawChessboardCorners(img_left, self.chessboard_size, corners_left, ret_left)
-                    cv.imshow('Left Image', img_left)
+                    # if os.environ.get("DISPLAY"):
+                    #     cv.imshow('Left Image', img_left)
                     cv.drawChessboardCorners(img_right, self.chessboard_size, corners_right, ret_right)
-                    cv.imshow('Right Image', img_right)
-                    cv.waitKey(1000)
+                    # if os.environ.get("DISPLAY"):
+                    #     cv.imshow('Right Image', img_right)
+                    # cv.waitKey(1000)
             else:
                 if self.verbose:
                     print(f"Failed to detect chessboard for images: {img_left_path} and {img_right_path}")
-        cv.destroyAllWindows()
+        # cv.destroyAllWindows()
         
     def detect_chessboard_corners_from_buffer(self):
         """
@@ -209,14 +211,16 @@ class StereoCalibrator:
                 # Optionally display detected corners
                 if self.show_corners:
                     cv.drawChessboardCorners(img_left, self.chessboard_size, corners_left, ret_left)
-                    cv.imshow('Left Image', img_left)
+                    # if os.environ.get("DISPLAY"):
+                    #     cv.imshow('Left Image', img_left)
                     cv.drawChessboardCorners(img_right, self.chessboard_size, corners_right, ret_right)
-                    cv.imshow('Right Image', img_right)
-                    cv.waitKey(1000)
+                    # if os.environ.get("DISPLAY"):
+                    #     cv.imshow('Right Image', img_right)
+                    # cv.waitKey(1000)
             else:
                 if self.verbose:
                     print(f"Failed to detect chessboard for images")
-        cv.destroyAllWindows()
+        # cv.destroyAllWindows()
 
     def calibrate_cameras(self):
         """
@@ -407,19 +411,20 @@ class StereoCalibrator:
         self.save_parameters(output_base_dir="calibrated_params", pair_id=pair_id)
 
 def main():
-    # left_dir = 'camera0'
-    # right_dir = 'camera1'
-    # calibrator = StereoCalibrator(
-    #     left_images_dir=left_dir, 
-    #     right_images_dir=right_dir,
-    #     chessboard_size=(10, 7),
-    #     square_size=25,
-    #     show_corners=True,
-    #     verbose=True,
-    #     use_buffer=False
-    # )
-    # calibrator.run_calibration(pair_id=0)
-    pass
+    left_dir = 'camera3'
+    right_dir = 'camera2'
+    pair = 1
+    calibrator = StereoCalibrator(
+        left_images_dir=left_dir, 
+        right_images_dir=right_dir,
+        chessboard_size=(10, 7),
+        square_size=18,
+        show_corners=True,
+        verbose=True,
+        use_buffer=False
+    )
+    calibrator.run_calibration(pair_id=pair)
+    # pass
 
 
 if __name__ == "__main__":

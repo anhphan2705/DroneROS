@@ -1,0 +1,321 @@
+mappings:
+  - id: 0
+    class_id: 0
+    classification_id: -1
+    class_name: person
+  - id: 1
+    class_id: 1
+    classification_id: -1
+    class_name: bicycle
+  - id: 2
+    class_id: 2
+    classification_id: -1
+    class_name: car
+  - id: 3
+    class_id: 3
+    classification_id: -1
+    class_name: motorcycle
+  - id: 4
+    class_id: 4
+    classification_id: -1
+    class_name: airplane
+  - id: 5
+    class_id: 5
+    classification_id: -1
+    class_name: bus
+  - id: 6
+    class_id: 6
+    classification_id: -1
+    class_name: train
+  - id: 7
+    class_id: 7
+    classification_id: -1
+    class_name: truck
+  - id: 8
+    class_id: 8
+    classification_id: -1
+    class_name: boat
+  - id: 9
+    class_id: 9
+    classification_id: -1
+    class_name: traffic light
+  - id: 10
+    class_id: 10
+    classification_id: -1
+    class_name: fire hydrant
+  - id: 11
+    class_id: 11
+    classification_id: -1
+    class_name: stop sign
+  - id: 12
+    class_id: 12
+    classification_id: -1
+    class_name: parking meter
+  - id: 13
+    class_id: 13
+    classification_id: -1
+    class_name: bench
+  - id: 14
+    class_id: 14
+    classification_id: -1
+    class_name: bird
+  - id: 15
+    class_id: 15
+    classification_id: -1
+    class_name: cat
+  - id: 16
+    class_id: 16
+    classification_id: -1
+    class_name: dog
+  - id: 17
+    class_id: 17
+    classification_id: -1
+    class_name: horse
+  - id: 18
+    class_id: 18
+    classification_id: -1
+    class_name: sheep
+  - id: 19
+    class_id: 19
+    classification_id: -1
+    class_name: cow
+  - id: 20
+    class_id: 20
+    classification_id: -1
+    class_name: elephant
+  - id: 21
+    class_id: 21
+    classification_id: -1
+    class_name: bear
+  - id: 22
+    class_id: 22
+    classification_id: -1
+    class_name: zebra
+  - id: 23
+    class_id: 23
+    classification_id: -1
+    class_name: giraffe
+  - id: 24
+    class_id: 24
+    classification_id: -1
+    class_name: backpack
+  - id: 25
+    class_id: 25
+    classification_id: -1
+    class_name: umbrella
+  - id: 26
+    class_id: 26
+    classification_id: -1
+    class_name: handbag
+  - id: 27
+    class_id: 27
+    classification_id: -1
+    class_name: tie
+  - id: 28
+    class_id: 28
+    classification_id: -1
+    class_name: suitcase
+  - id: 29
+    class_id: 29
+    classification_id: -1
+    class_name: frisbee
+  - id: 30
+    class_id: 30
+    classification_id: -1
+    class_name: skis
+  - id: 31
+    class_id: 31
+    classification_id: -1
+    class_name: snowboard
+  - id: 32
+    class_id: 32
+    classification_id: -1
+    class_name: sports ball
+  - id: 33
+    class_id: 33
+    classification_id: -1
+    class_name: kite
+  - id: 34
+    class_id: 34
+    classification_id: -1
+    class_name: baseball bat
+  - id: 35
+    class_id: 35
+    classification_id: -1
+    class_name: baseball glove
+  - id: 36
+    class_id: 36
+    classification_id: -1
+    class_name: skateboard
+  - id: 37
+    class_id: 37
+    classification_id: -1
+    class_name: surfboard
+  - id: 38
+    class_id: 38
+    classification_id: -1
+    class_name: tennis racket
+  - id: 39
+    class_id: 39
+    classification_id: -1
+    class_name: bottle
+  - id: 40
+    class_id: 40
+    classification_id: -1
+    class_name: wine glass
+  - id: 41
+    class_id: 41
+    classification_id: -1
+    class_name: cup
+  - id: 42
+    class_id: 42
+    classification_id: -1
+    class_name: fork
+  - id: 43
+    class_id: 43
+    classification_id: -1
+    class_name: knife
+  - id: 44
+    class_id: 44
+    classification_id: -1
+    class_name: spoon
+  - id: 45
+    class_id: 45
+    classification_id: -1
+    class_name: bowl
+  - id: 46
+    class_id: 46
+    classification_id: -1
+    class_name: banana
+  - id: 47
+    class_id: 47
+    classification_id: -1
+    class_name: apple
+  - id: 48
+    class_id: 48
+    classification_id: -1
+    class_name: sandwich
+  - id: 49
+    class_id: 49
+    classification_id: -1
+    class_name: orange
+  - id: 50
+    class_id: 50
+    classification_id: -1
+    class_name: broccoli
+  - id: 51
+    class_id: 51
+    classification_id: -1
+    class_name: carrot
+  - id: 52
+    class_id: 52
+    classification_id: -1
+    class_name: hot dog
+  - id: 53
+    class_id: 53
+    classification_id: -1
+    class_name: pizza
+  - id: 54
+    class_id: 54
+    classification_id: -1
+    class_name: donut
+  - id: 55
+    class_id: 55
+    classification_id: -1
+    class_name: cake
+  - id: 56
+    class_id: 56
+    classification_id: -1
+    class_name: chair
+  - id: 57
+    class_id: 57
+    classification_id: -1
+    class_name: couch
+  - id: 58
+    class_id: 58
+    classification_id: -1
+    class_name: potted plant
+  - id: 59
+    class_id: 59
+    classification_id: -1
+    class_name: bed
+  - id: 60
+    class_id: 60
+    classification_id: -1
+    class_name: dining table
+  - id: 61
+    class_id: 61
+    classification_id: -1
+    class_name: toilet
+  - id: 62
+    class_id: 62
+    classification_id: -1
+    class_name: tv
+  - id: 63
+    class_id: 63
+    classification_id: -1
+    class_name: laptop
+  - id: 64
+    class_id: 64
+    classification_id: -1
+    class_name: mouse
+  - id: 65
+    class_id: 65
+    classification_id: -1
+    class_name: remote
+  - id: 66
+    class_id: 66
+    classification_id: -1
+    class_name: keyboard
+  - id: 67
+    class_id: 67
+    classification_id: -1
+    class_name: cell phone
+  - id: 68
+    class_id: 68
+    classification_id: -1
+    class_name: microwave
+  - id: 69
+    class_id: 69
+    classification_id: -1
+    class_name: oven
+  - id: 70
+    class_id: 70
+    classification_id: -1
+    class_name: toaster
+  - id: 71
+    class_id: 71
+    classification_id: -1
+    class_name: sink
+  - id: 72
+    class_id: 72
+    classification_id: -1
+    class_name: refrigerator
+  - id: 73
+    class_id: 73
+    classification_id: -1
+    class_name: book
+  - id: 74
+    class_id: 74
+    classification_id: -1
+    class_name: clock
+  - id: 75
+    class_id: 75
+    classification_id: -1
+    class_name: vase
+  - id: 76
+    class_id: 76
+    classification_id: -1
+    class_name: scissors
+  - id: 77
+    class_id: 77
+    classification_id: -1
+    class_name: teddy bear
+  - id: 78
+    class_id: 78
+    classification_id: -1
+    class_name: hair drier
+  - id: 79
+    class_id: 79
+    classification_id: -1
+    class_name: toothbrush
