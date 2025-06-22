@@ -111,7 +111,7 @@ class ByteTrackNode(Node):
         img_size = self.image_shape
 
         if len(detections) == 0:
-            self.get_logger().info("No detections — publishing empty tracked message.")
+            self.get_logger().debug("No detections — publishing empty tracked message.")
             empty_msg = TrackedBoundingBoxes()
             empty_msg.header = msg.header
             self.pub.publish(empty_msg)
@@ -149,7 +149,7 @@ class ByteTrackNode(Node):
             out_msg.boxes.append(tracked_box)
 
         self.pub.publish(out_msg)
-        self.get_logger().info(f"Published {len(out_msg.boxes)} tracked boxes")
+        self.get_logger().debug(f"Published {len(out_msg.boxes)} tracked boxes")
 
 def main(args=None):
     rclpy.init(args=args)

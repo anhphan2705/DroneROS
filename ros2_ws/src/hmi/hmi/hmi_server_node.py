@@ -25,8 +25,14 @@ class Settings:
     ros_workspace: str = os.path.expanduser('~/BaseROS/ros2_ws')
     default_topics = [
         '/camera/image_raw',
+        '/camera/image_raw/split_0',
+        '/camera/image_raw/split_1',
+        '/camera/image_raw/split_2',
+        '/camera/image_raw/split_3',
         '/camera/rectified_0/depth_map/depth_vis',
         '/perception_img_visualizer_0',
+        '/camera/rectified_1/depth_map/depth_vis',
+        '/perception_img_visualizer_1',
     ]
     mjpeg_fps: int = 15
     downscale: float = 1.00
@@ -50,7 +56,9 @@ app = FastAPI(
 
 pkg_share = get_package_share_directory('hmi')
 static_dir = os.path.join(pkg_share, 'static')
-app.mount(settings.static_prefix, StaticFiles(directory=static_dir), name='static')
+app.mount(settings.static_prefix + "/",
+          StaticFiles(directory=static_dir),
+          name='static')
 
 @app.get('/', response_class=FileResponse)
 def index():

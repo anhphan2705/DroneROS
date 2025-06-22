@@ -142,7 +142,7 @@ class CameraNode(Node):
             msg.header.frame_id = 'image_raw'
             self.publisher_.publish(msg)
         else:
-            self.get_logger().warn("No frame received from camera.")
+            self.get_logger().debug("No frame received from camera.")
 
     def publish_status(self):
         actual_width, actual_height, actual_fps, flip_method = self.camera.get_actual_settings()
@@ -153,7 +153,7 @@ class CameraNode(Node):
             status_msg.image_height = actual_height
             status_msg.flip_method = flip_method
             self.status_publisher_.publish(status_msg)
-            self.get_logger().info(f"Published camera status: {status_msg}")
+            self.get_logger().debug(f"Published camera status: {status_msg}")
 
     def destroy_node(self):
         self.camera.close()

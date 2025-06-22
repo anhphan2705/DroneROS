@@ -58,7 +58,7 @@ class ObjectDepthFusionNode(Node):
             depth_boxes.boxes.append(bbox)
 
         self.pub.publish(depth_boxes)
-        self.get_logger().info(f"Published {len(depth_boxes.boxes)} bboxes with depth.")
+        self.get_logger().debug(f"Published {len(depth_boxes.boxes)} bboxes with depth.")
 
 def main(args=None):
     rclpy.init(args=args)

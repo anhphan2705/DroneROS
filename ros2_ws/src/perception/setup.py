@@ -50,6 +50,7 @@ setup(
             'id_mapper_node = perception.id_mapper_node:main',
             'camera_rectification_node = perception.camera_rectification_node:main',
             'bag2mp4 = perception.bag2mp4:main',
+            'depth2pcl_node = perception.depth2pcl_node:main',
         ],
     },
 )

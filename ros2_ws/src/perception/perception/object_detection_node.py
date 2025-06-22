@@ -104,7 +104,7 @@ class YOLOv8InferenceNode(Node):
             det.depth = -1.0
             boxes_msg.boxes.append(det)
 
-        self.get_logger().info(
+        self.get_logger().debug(
             f"[{len(boxes_msg.boxes)}] detections at t={msg.header.stamp.sec}.{msg.header.stamp.nanosec}"
         )
         self.detection_pub.publish(boxes_msg)

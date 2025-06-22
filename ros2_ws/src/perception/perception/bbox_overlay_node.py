@@ -62,7 +62,7 @@ class BBoxOverlayNode(Node):
             cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
 
-        self.get_logger().info(f"Overlaying {len(boxes_msg.boxes)} boxes on image")
+        self.get_logger().debug(f"Overlaying {len(boxes_msg.boxes)} boxes on image")
         overlay_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
         overlay_msg.header = img_msg.header
         self.image_pub.publish(overlay_msg)

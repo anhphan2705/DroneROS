@@ -84,7 +84,7 @@ class StereoDepthNode(Node):
         self.block_size = 3         # Block size for matching (1, 3, 5, or 7)
         # self.num_pass = 1
         # self.quality = 1
-        self.uniqueness = -1.0
+        self.uniqueness = 0.6
         self.includediagonals = False
         self.stream = vpi.Stream()  # Create a reusable VPI stream
 
@@ -135,9 +135,17 @@ class StereoDepthNode(Node):
         # )
 
         # Allocate depth map array with the same shape as the disparity image
-        valid = disparity_float > 0
         depth_map = np.zeros_like(disparity_float, dtype=np.float32)
+        valid = disparity_float > 0
         depth_map[valid] = (self.fx * self.baseline_m) / disparity_float[valid]
+
+        # Remove extremely small or large values (spurious spikes)
+        # depth_map = np.nan_to_num(depth_map, nan=0.0, posinf=0.0, neginf=0.0)
+        depth_map[depth_map < 0.02] = 0.0     # too close, usually invalid
+        # depth_map[depth_map > 40.0] = 0.0    # max valid range
+
+        # Optional: smooth out noisy spikes using median filter
+        # depth_map = cv2.medianBlur(depth_map, 5)
         
         # if np.any(valid):
         #     self.get_logger().info(

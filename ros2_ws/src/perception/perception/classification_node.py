@@ -137,7 +137,7 @@ class ClassificationNode(Node):
                 new_box.speed_mps = box.speed_mps
                 out_msg.boxes.append(new_box)
             self.pub.publish(out_msg)
-            self.get_logger().info(f"Publishing {len(ids)} classification IDs.")
+            self.get_logger().debug(f"Publishing {len(ids)} classification IDs.")
             return
 
         # Batch inference for collected ROIs

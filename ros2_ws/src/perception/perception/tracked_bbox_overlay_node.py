@@ -63,7 +63,7 @@ class TrackedBBoxOverlayNode(Node):
                 y = y1 - 8 - (i * line_h)
                 cv2.putText(frame, line, (x1, y), font, scale, (0,0,0), thickness, cv2.LINE_AA)
 
-        self.get_logger().info(f"Overlayed {len(tracked_msg.boxes)} tracked boxes on image.")
+        self.get_logger().debug(f"Overlayed {len(tracked_msg.boxes)} tracked boxes on image.")
         overlay_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
         overlay_msg.header = img_msg.header
         self.image_pub.publish(overlay_msg)

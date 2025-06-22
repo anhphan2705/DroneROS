@@ -17,7 +17,7 @@ class CameraSplitterNode(Node):
         self.bridge = CvBridge()
 
         self.image_publishers = [
-            self.create_publisher(Image, f'/camera/image_raw/split_{i}', 50)
+            self.create_publisher(Image, f'/camera/image_raw/split_{i}', 10)
             for i in range(4)
         ]
         self.status_publisher = self.create_publisher(String, '/camera/status/camera_splitter_status', 10)
@@ -29,7 +29,8 @@ class CameraSplitterNode(Node):
 
     def image_callback(self, msg):
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            # cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding=msg.encoding)
 
             # Get shape and define split points
             h, w, _ = cv_image.shape
