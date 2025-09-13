@@ -14,7 +14,7 @@ def gstreamer_pipeline(
         capture_height=1080, 
         display_width=1920, 
         display_height=1080, 
-        framerate=60, 
+        framerate=20, 
         flip_method=0
     ):
     return (
@@ -117,7 +117,7 @@ class CameraNode(Node):
         framerate = self.get_parameter('framerate').value
         flip_method = self.get_parameter('flip_method').value
         
-        self.publisher_ = self.create_publisher(Image, '/camera/image_raw', 50)
+        self.publisher_ = self.create_publisher(Image, '/camera/image_raw', 10)
         self.status_publisher_ = self.create_publisher(RawCameraStatus, '/camera/status/raw_image_info', 10)
         self.bridge = CvBridge()
         self.camera = Camera(self, capture_width, capture_height, framerate, flip_method)

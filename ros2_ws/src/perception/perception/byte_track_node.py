@@ -8,6 +8,8 @@ from yolox.tracker.byte_tracker import BYTETracker
 import numpy as np
 import math
 from argparse import Namespace
+import os
+import cv2
 
 class ByteTrackNode(Node):
     def __init__(self):
@@ -16,18 +18,39 @@ class ByteTrackNode(Node):
         self.declare_parameter('input_topic', '/yolo/detections')
         self.declare_parameter('output_topic', '/yolo/tracked_detections')
         self.declare_parameter('image_topic', '/camera/image_raw')
-        self.declare_parameter('horizontal_fov_deg', 66.0)
-        self.declare_parameter('vertical_fov_deg', 49.5)
+        self.declare_parameter('calibration_file', 'stereo_calibration_params_pair_1_2025-06-15_21-20-05.yml')
 
         self.input_topic = self.get_parameter('input_topic').value
         self.output_topic = self.get_parameter('output_topic').value
         self.image_topic = self.get_parameter('image_topic').value
-        self.horizontal_fov_deg = self.get_parameter('horizontal_fov_deg').value
-        self.vertical_fov_deg = self.get_parameter('vertical_fov_deg').value
+        self.calibration_file = self.get_parameter('calibration_file').value
 
         self.sub = self.create_subscription(BoundingBoxes, self.input_topic, self.detection_callback, 10)
-        self.image_sub = self.create_subscription(Image, self.image_topic, self.image_callback, 1)
         self.pub = self.create_publisher(TrackedBoundingBoxes, self.output_topic, 10)
+        
+        if not os.path.isfile(self.calibration_file):
+            self.get_logger().fatal(f"Calibration file not found: {self.calibration_file}")
+            raise RuntimeError("Missing calibration file")
+
+        # Parse intrinsics from YAML
+        fs = cv2.FileStorage(self.calibration_file, cv2.FILE_STORAGE_READ)
+        if not fs.isOpened():
+            self.get_logger().fatal(f"Cannot open calibration file: {self.calibration_file}")
+            raise RuntimeError("Calibration file load failed")
+        
+        frame_size_raw = fs.getNode('frame_size').mat()
+        self.image_shape = (int(frame_size_raw[1][0]), int(frame_size_raw[0][0]))  # (height, width)
+        
+        P1 = fs.getNode('projection_matrix_left').mat()
+        self.fx = P1[0, 0]
+        self.fy = P1[1, 1]
+        self.cx = P1[0, 2]
+        self.cy = P1[1, 2]
+        fs.release()
+
+        self.get_logger().info(
+            f"Frame size: {self.image_shape}; Loaded intrinsics: fx={self.fx:.2f}, fy={self.fy:.2f}, cx={self.cx:.2f}, cy={self.cy:.2f}"
+        )
 
         args = Namespace(
             track_thresh=0.5,
@@ -36,49 +59,11 @@ class ByteTrackNode(Node):
             frame_rate=30,
             mot20=False,
         )
+        
         self.tracker = BYTETracker(args, frame_rate=30)
-
-        self.fx = None
-        self.fy = None
-        self.image_shape = None
-        self.focal_length_computed = False
         self.class_map = {}
 
         self.get_logger().info(f"ByteTrack node subscribed to {self.input_topic}, publishing to {self.output_topic}")
-        
-    def image_callback(self, msg: Image):
-        if self.focal_length_computed:
-            return
-
-        height = msg.height
-        width = msg.width
-        self.image_shape = (height, width)
-        aspect_ratio = width / height
-
-        # Compute fx, fy from known FOVs
-        if self.fx is None and self.horizontal_fov_deg > 0:
-            self.fx = (width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
-        if self.fy is None and self.vertical_fov_deg > 0:
-            self.fy = (height / 2) / math.tan(math.radians(self.vertical_fov_deg / 2))
-
-        # Infer vertical FOV from horizontal FOV if vertical is missing
-        if self.vertical_fov_deg < 0 and self.horizontal_fov_deg > 0:
-            self.vertical_fov_deg = math.degrees(2 * math.atan(math.tan(math.radians(self.horizontal_fov_deg / 2)) / aspect_ratio))
-            self.fy = (height / 2) / math.tan(math.radians(self.vertical_fov_deg / 2))
-            self.get_logger().warn(f"Inferred vertical FOV: {self.vertical_fov_deg:.2f}°")
-
-        # Infer horizontal FOV from vertical FOV if horizontal is missing
-        if self.horizontal_fov_deg < 0 and self.vertical_fov_deg > 0:
-            self.horizontal_fov_deg = math.degrees(2 * math.atan(math.tan(math.radians(self.vertical_fov_deg / 2)) * aspect_ratio))
-            self.fx = (width / 2) / math.tan(math.radians(self.horizontal_fov_deg / 2))
-            self.get_logger().warn(f"Inferred horizontal FOV: {self.horizontal_fov_deg:.2f}°")
-
-        if self.fx is None or self.fy is None:
-            self.get_logger().error("Failed to compute fx/fy due to missing FOV values.")
-            return
-
-        self.get_logger().info(f"Image shape: {self.image_shape}, fx: {self.fx:.2f}, fy: {self.fy:.2f}")
-        self.focal_length_computed = True
 
     def detection_callback(self, msg: BoundingBoxes):
         

@@ -362,7 +362,7 @@ class StereoCalibrator:
 
         cv_file = cv.FileStorage(filename, cv.FILE_STORAGE_WRITE)
         # Write image details
-        cv_file.write('reprojection_stereo_error', self.frame_size)
+        cv_file.write('frame_size', self.frame_size)
         # Write performace parameters
         cv_file.write('reprojection_stereo_error', self.reprojection_stereo_error)
         cv_file.write('rectification_error_left', self.rectification_error_left)
@@ -418,7 +418,7 @@ def main():
         left_images_dir=left_dir, 
         right_images_dir=right_dir,
         chessboard_size=(10, 7),
-        square_size=18,
+        square_size=50,
         show_corners=True,
         verbose=True,
         use_buffer=False

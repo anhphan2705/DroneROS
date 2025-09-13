@@ -8,13 +8,13 @@ calib_pkg_share = get_package_share_directory('perception')
 calib_file_0 = os.path.join(
     calib_pkg_share,
     'calibrated_params',
-    'stereo_calibration_params_pair_0_2025-06-15_21-14-08.yml'
+    'stereo_calibration_params_pair_0_2025-07-11_19-45-40.yml'
 )
 
 calib_file_1 = os.path.join(
     calib_pkg_share,
     'calibrated_params',
-    'stereo_calibration_params_pair_1_2025-06-15_21-20-05.yml'
+    'stereo_calibration_params_pair_1_2025-07-11_19-46-08.yml'
 )
     
 def generate_launch_description():
@@ -123,7 +123,7 @@ def generate_launch_description():
             {'depth_topic': '/camera/rectified_1/depth_map'},
             {'pointcloud_topic': '/camera/rectified_1/depth_cloud'},
             {'calibration_file': calib_file_1},
-            {'max_depth': 10.0}
+            {'max_depth': 40.0}
         ]
     )
 
@@ -206,8 +206,8 @@ def generate_launch_description():
             {'input_topic': '/yolo/detections_0'},
             {'output_topic': '/yolo/detections_0/tracked'},
             {'image_topic': '/camera/rectified_0/left'},
-            {'horizontal_fov_deg': 66.0},
-            {'vertical_fov_deg': 49.5},
+            {'calibration_file': calib_file_0},
+
         ]
     )
     
@@ -220,8 +220,7 @@ def generate_launch_description():
             {'input_topic': '/yolo/detections_1'},
             {'output_topic': '/yolo/detections_1/tracked'},
             {'image_topic': '/camera/rectified_1/left'},
-            {'horizontal_fov_deg': 66.0},
-            {'vertical_fov_deg': 49.5},
+            {'calibration_file': calib_file_1},
         ]
     )
     
@@ -384,30 +383,30 @@ def generate_launch_description():
         camera_splitter_node,
         delayed_manual_focus_node,
         sync_capture_node,
-        # camera_rectification_node_0,
+        camera_rectification_node_0,
         camera_rectification_node_1,
-        # stereo_depth_node_0,
+        stereo_depth_node_0,
         stereo_depth_node_1,
-        # depth2pcl_node_0,
+        depth2pcl_node_0,
         depth2pcl_node_1,
         # depth_viz_0,
-        depth_viz_1,
-        # yolov8_detection_0,
-        yolov8_detection_1,
+        # depth_viz_1,
+        yolov8_detection_0,
+        # yolov8_detection_1,
         # overlay_0,
         # overlay_1,
-        # byte_track_node_0,
-        byte_track_node_1,
-        # classification_node_id11_0,
-        # traffic_light_classification_0,
-        classification_node_id11_1,
-        traffic_light_classification_1,
-        # object_depth_fusion_node_0,
-        object_depth_fusion_node_1,
-        # speed_estimator_node_0,
-        speed_estimator_node_1,
-        # id_mapper_node_0,
-        id_mapper_node_1,
-        # tracked_overlay_0,
-        tracked_overlay_1,
+        byte_track_node_0,
+        # byte_track_node_1,
+        classification_node_id11_0,
+        traffic_light_classification_0,
+        # classification_node_id11_1,
+        # traffic_light_classification_1,
+        object_depth_fusion_node_0,
+        # object_depth_fusion_node_1,
+        speed_estimator_node_0,
+        # speed_estimator_node_1,
+        id_mapper_node_0,
+        # id_mapper_node_1,
+        tracked_overlay_0,
+        # tracked_overlay_1,
     ])
