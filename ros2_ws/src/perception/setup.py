@@ -32,6 +32,7 @@ setup(
     entry_points={
         'console_scripts': [
             'camera_node = perception.camera_node:main',
+            'camera_gpu_node = perception.camera_gpu_node:main',
             'autofocus_node = perception.autofocus_node:main',
             'manual_focus_node = perception.manual_focus_node:main',
             'camera_splitter_node = perception.camera_splitter_node:main',
