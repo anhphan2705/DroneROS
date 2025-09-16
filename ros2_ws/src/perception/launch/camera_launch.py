@@ -18,18 +18,19 @@ calib_file_1 = os.path.join(
 )
     
 def generate_launch_description():
-    camera_node = launch_ros.actions.Node(
+    camera_gpu_node = launch_ros.actions.Node(
         package='perception',
-        executable='camera_node',
-        name='camera_node',
-        output='screen'
-    )
-
-    camera_splitter_node = launch_ros.actions.Node(
-        package='perception',
-        executable='camera_splitter_node',
-        name='camera_splitter_node',
-        output='screen'
+        executable='camera_gpu_node',
+        name='camera_gpu_node',
+        output='screen',
+        parameters=[
+            {'width': 1920},
+            {'height': 1080},
+            {'fps': 60},
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 5600},
+            {'bitrate_kbps': 2000},
+        ]
     )
 
     manual_focus_node = launch_ros.actions.Node(
@@ -56,8 +57,8 @@ def generate_launch_description():
         executable='camera_rectification_node',
         name='camera_rectification_node_0',
         parameters=[
-            {'left_image_topic': '/camera/image_raw/split_1'},
-            {'right_image_topic': '/camera/image_raw/split_0'},
+            {'left_image_topic': '/camera1/image_raw'},
+            {'right_image_topic': '/camera0/image_raw'},
             {'calibration_file': calib_file_0},
             {'output_prefix': '/camera/rectified_0'}
         ]
@@ -68,8 +69,8 @@ def generate_launch_description():
         executable='camera_rectification_node',
         name='camera_rectification_node_1',
         parameters=[
-            {'left_image_topic': '/camera/image_raw/split_3'},
-            {'right_image_topic': '/camera/image_raw/split_2'},
+            {'left_image_topic': '/camera3/image_raw'},
+            {'right_image_topic': '/camera2/image_raw'},
             {'calibration_file': calib_file_1},
             {'output_prefix': '/camera/rectified_1'}
         ]
@@ -379,8 +380,7 @@ def generate_launch_description():
     )
 
     return launch.LaunchDescription([
-        camera_node,
-        camera_splitter_node,
+        camera_gpu_node,
         delayed_manual_focus_node,
         sync_capture_node,
         camera_rectification_node_0,

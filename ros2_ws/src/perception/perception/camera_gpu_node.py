@@ -5,6 +5,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import numpy as np
 import gi
+import cv2
 
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
