@@ -7,135 +7,63 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import os
 import datetime
-import threading
-from message_filters import ApproximateTimeSynchronizer, Subscriber
 from msgs.srv import CaptureImageRequest
 
-class SyncCaptureNode(Node):
+class SimpleCaptureNode(Node):
     def __init__(self):
-        super().__init__('sync_capture_node')
-        # Set logger to debug level (you can also use command-line args: --ros-args --log-level DEBUG)
-        # self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
-        
+        super().__init__('simple_capture_node')
+
+        # Declare parameter for image topic
+        self.declare_parameter("camera_topic", "/camera/image_raw")
+        self.topic = self.get_parameter("camera_topic").get_parameter_value().string_value
+
         self.bridge = CvBridge()
 
-        # Main folder to save screenshots
+        # Folder to save images
         self.save_directory = 'image_captured'
         os.makedirs(self.save_directory, exist_ok=True)
 
-        # Define camera IDs and topics
-        self.camera_ids = ['camera0', 'camera1', 'camera2', 'camera3']
-        self.topics = {
-            'camera0': '/camera/image_raw/split_0',
-            'camera1': '/camera/image_raw/split_1',
-            'camera2': '/camera/image_raw/split_2',
-            'camera3': '/camera/image_raw/split_3'
-        }
+        # Subscribe to camera topic
+        self.sub = self.create_subscription(Image, self.topic, self.image_callback, 10)
+        self.last_image = None
 
-        # Create a subfolder for each camera.
-        self.camera_folders = {}
-        for cam in self.camera_ids:
-            cam_folder = os.path.join(self.save_directory, cam)
-            os.makedirs(cam_folder, exist_ok=True)
-            self.camera_folders[cam] = cam_folder
-            self.get_logger().debug(f"Created folder {cam_folder} for {cam}")
-
-        # Create message_filters subscribers for each camera topic.
-        self.subscribers = {}
-        for cam in self.camera_ids:
-            self.subscribers[cam] = Subscriber(self, Image, self.topics[cam])
-            self.get_logger().debug(f"Subscribed to {self.topics[cam]} for {cam}")
-
-        # Set up an approximate time synchronizer for all camera subscribers.
-        self.sync = ApproximateTimeSynchronizer(list(self.subscribers.values()),
-                                                queue_size=10,
-                                                slop=0.01)
-        self.sync.registerCallback(self.sync_callback)
-
-        # This variable holds the last synchronized set of images (as ROS messages).
-        self.last_sync = {}
-        # Event to signal that a new synchronized set is available.
-        self.sync_event = threading.Event()
-
-        # Create a service to trigger the synchronized screenshot capture.
+        # Service to trigger capture
         self.srv = self.create_service(CaptureImageRequest,
-                                       'capture_sync_image',
+                                       'capture_image',
                                        self.service_callback)
 
-        self.get_logger().info("SyncCaptureNode initialized and ready.")
+        self.get_logger().info(f"Ready to capture from {self.topic}")
 
-    def sync_callback(self, *msgs):
-        """
-        Callback from the synchronizer.
-        msgs is a tuple of Image messages in the order of self.camera_ids.
-        """
-        self.get_logger().debug("Received synchronized messages.")
-        sync_dict = {}
-        for i, cam in enumerate(self.camera_ids):
-            sync_dict[cam] = msgs[i]
-            self.get_logger().debug(f"Camera: {cam}, Timestamp: {msgs[i].header.stamp}")
-        self.last_sync = sync_dict
-        # Signal that a new synchronized set is available.
-        self.sync_event.set()
+    def image_callback(self, msg: Image):
+        """Keep the latest image in memory."""
+        self.last_image = msg
 
     def service_callback(self, request, response):
-        self.get_logger().info("Service callback triggered. Checking for recent synchronized set.")
-        
-        # Here you might store the time of the last synchronized set (e.g., in self.last_sync_time)
-        # For simplicity, let’s assume you decide to wait with a longer timeout
-        if not self.sync_event.wait(timeout=1.0):
+        """Save the latest image when service is called."""
+        if self.last_image is None:
             response.success = False
-            response.message = "Timeout waiting for synchronized images."
-            self.get_logger().debug("Timeout waiting for synchronized images.")
+            response.message = "No image received yet."
             return response
 
-        # Optionally, you can check if the synchronized set is recent enough.
-        # For example:
-        # if (current_time - self.last_sync_time) > threshold:
-        #     response.success = False
-        #     response.message = "Synchronized set too old."
-        #     return response
-
-        # Now process the latest synchronized set
-        self.sync_event.clear()
-
-        captured = []
-        missing = []
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.get_logger().info(f"Synchronized set received. Processing capture with timestamp: {timestamp}")
-
-        for cam_id in request.camera_ids:
-            if cam_id in self.last_sync:
-                msg = self.last_sync[cam_id]
-                try:
-                    cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                    filename = os.path.join(self.camera_folders[cam_id],
-                                            f"{cam_id}_sync_{timestamp}.png")
-                    cv2.imwrite(filename, cv_image)
-                    captured.append(cam_id)
-                    self.get_logger().debug(f"Saved {cam_id} image to {filename}")
-                except CvBridgeError as e:
-                    missing.append(cam_id)
-                    self.get_logger().error(f"Conversion error for {cam_id}: {e}")
-            else:
-                missing.append(cam_id)
-                self.get_logger().warn(f"Camera ID {cam_id} not in synchronized set.")
-
-        if captured:
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(self.last_image, desired_encoding='bgr8')
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = os.path.join(self.save_directory, f"capture_{timestamp}.png")
+            cv2.imwrite(filename, cv_image)
             response.success = True
-            response.message = f"Captured images for: {', '.join(captured)}."
-            if missing:
-                response.message += f" Failed for: {', '.join(missing)}."
-        else:
+            response.message = f"Saved image to {filename}"
+            self.get_logger().info(response.message)
+        except CvBridgeError as e:
             response.success = False
-            response.message = "No images captured."
-        
-        self.get_logger().info(f"Service response: {response}")
+            response.message = f"Conversion error: {e}"
+            self.get_logger().error(response.message)
+
         return response
+
 
 def main(args=None):
     rclpy.init(args=args)
-    node = SyncCaptureNode()
+    node = SimpleCaptureNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -143,8 +71,9 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
+
 if __name__ == '__main__':
     main()
-    
-    
-# How to use it: ros2 service call /capture_sync_image msgs/srv/CaptureImageRequest "{camera_ids: ['camera0', 'camera2']}"
+
+
+# How to use it: ros2 service call /capture_image msgs/srv/CaptureImageRequest "{}"

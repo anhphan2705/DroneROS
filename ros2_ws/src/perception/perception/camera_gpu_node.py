@@ -51,32 +51,45 @@ def load_rect_maps_2f32(calib_file: str):
     fs.release()
     return map_left, map_right
 
-def build_vpi_warp(map_x: np.ndarray, map_y: np.ndarray, grid=(16, 16)):
+# def build_vpi_warp(map_x: np.ndarray, map_y: np.ndarray):
+#     """
+#     Turn OpenCV rectification maps into a VPI WarpMap (VPI 3.1 compatible).
+#     map_x, map_y: (H, W) float32 arrays (pixel-space source coords).
+#     """
+#     assert map_x.shape == map_y.shape,
+#     assert map_x.dtype == np.float32 and map_y.dtype == np.float32, "maps must be float32"
+#     h, w = map_x.shape
+
+#     # 1) Create grid and WarpMap for the *output* image size (the rectified ROI)
+#     grid = vpi.WarpGrid((w, h))
+#     warp = vpi.WarpMap(grid)
+
+#     # 2) Get a dense view into WarpMap and write the (x,y) source coordinates
+#     arr = np.asarray(warp)            # shape (h, w, 2), float32
+#     arr[..., 0] = map_x               # X
+#     arr[..., 1] = map_y               # Y
+
+#     return warp
+
+
+# This version manual cropping out odd pixel column to fit the 540x960
+def build_vpi_warp(map_x: np.ndarray, map_y: np.ndarray):
     """
-    Convert dense OpenCV rectification maps into a VPI WarpMap for remap().
-    - map_x, map_y: (H,W) float32 arrays giving source coords
-    - grid: spacing of control points (default 16x16 pixels)
+    Build a WarpMap using calibration maps. Handles VPI padding.
     """
     assert map_x.shape == map_y.shape
     h, w = map_x.shape
 
-    # Create WarpMap with target size (w,h) and grid spacing
-    wm = vpi.WarpMap((w, h), grid)
+    grid = vpi.WarpGrid((w, h))  # VPI may pad internally
+    warp = vpi.WarpMap(grid)
+    arr = np.asarray(warp)
 
-    # Get access to the sparse control grid (gy+1, gx+1, 2)
-    reg = wm.keypoints[0][0]
+    # Copy only overlapping region
+    arr[:h, :w, 0] = map_x
+    arr[:h, :w, 1] = map_y
 
-    gy = reg.shape[0] - 1
-    gx = reg.shape[1] - 1
+    return warp
 
-    # Fill WarpMap control points by sampling dense rectification maps
-    for j in range(gy + 1):
-        yi = int(round(j * (h - 1) / gy)) if gy > 0 else 0
-        for i in range(gx + 1):
-            xi = int(round(i * (w - 1) / gx)) if gx > 0 else 0
-            wm[j, i] = (float(map_x[yi, xi]), float(map_y[yi, xi]))
-
-    return wm
 
 class CameraGpuNode(Node):
     def __init__(self):
@@ -112,7 +125,7 @@ class CameraGpuNode(Node):
         self.bridge = CvBridge()
         self.raw_pub = self.create_publisher(Image, '/camera/image_raw', 10)
         self.rect_pubs = [
-            self.create_publisher(Image, f'/camera{i}/image_rectified', 10)
+            self.create_publisher(Image, f'/camera{i}/rectified', 10)
             for i in range(4)
         ]
 
