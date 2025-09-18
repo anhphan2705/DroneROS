@@ -29,7 +29,9 @@ def generate_launch_description():
             {'fps': 60},
             {'udp_host': '192.168.0.254'},
             {'udp_port': 5600},
-            {'bitrate_kbps': 2000},
+            {'bitrate_kbps': 2500},
+            {'calibration_file_0': calib_file_0},
+            {'calibration_file_1': calib_file_1},
         ]
     )
 
@@ -44,36 +46,15 @@ def generate_launch_description():
         package='perception',
         executable='sync_capture_node',
         name='sync_capture_node',
-        output='screen'
+        output='screen',
+        parameters=[
+            {"camera_topic": "/camera/image_raw"},
+        ]
     )
 
     delayed_manual_focus_node = launch.actions.TimerAction(
         period=10.0,
         actions=[manual_focus_node]
-    )
-
-    camera_rectification_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='camera_rectification_node',
-        name='camera_rectification_node_0',
-        parameters=[
-            {'left_image_topic': '/camera1/image_raw'},
-            {'right_image_topic': '/camera0/image_raw'},
-            {'calibration_file': calib_file_0},
-            {'output_prefix': '/camera/rectified_0'}
-        ]
-    )
-
-    camera_rectification_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='camera_rectification_node',
-        name='camera_rectification_node_1',
-        parameters=[
-            {'left_image_topic': '/camera3/image_raw'},
-            {'right_image_topic': '/camera2/image_raw'},
-            {'calibration_file': calib_file_1},
-            {'output_prefix': '/camera/rectified_1'}
-        ]
     )
 
     stereo_depth_node_0 = launch_ros.actions.Node(
@@ -82,9 +63,9 @@ def generate_launch_description():
         name='stereo_depth_node_0',
         output='screen',
         parameters=[
-            {'sub_left': '/camera/rectified_0/left'},
-            {'sub_right': '/camera/rectified_0/right'},
-            {'depth_publisher': '/camera/rectified_0/depth_map'},
+            {'sub_left': '/camera0/rectified'},
+            {'sub_right': '/camera1/rectified'},
+            {'depth_publisher': '/camera0/depth_map'},
             {'calibration_file': calib_file_0},
         ]
     )
@@ -95,58 +76,10 @@ def generate_launch_description():
         name='stereo_depth_node_1',
         output='screen',
         parameters=[
-            {'sub_left': '/camera/rectified_1/left'},
-            {'sub_right': '/camera/rectified_1/right'},
-            {'depth_publisher': '/camera/rectified_1/depth_map'},
+            {'sub_left': '/camera2/rectified'},
+            {'sub_right': '/camera3/rectified'},
+            {'depth_publisher': '/camera2/depth_map'},
             {'calibration_file': calib_file_1},
-        ]
-    )
-    
-    depth2pcl_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='depth2pcl_node',
-        name='depth2pcl_node_0',
-        output='screen',
-        parameters=[
-            {'depth_topic': '/camera/rectified_0/depth_map'},
-            {'pointcloud_topic': '/camera/rectified_0/depth_cloud'},
-            {'calibration_file': calib_file_0},
-            {'max_depth': 40.0}
-        ]
-    )
-
-    depth2pcl_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='depth2pcl_node',
-        name='depth2pcl_node_1',
-        output='screen',
-        parameters=[
-            {'depth_topic': '/camera/rectified_1/depth_map'},
-            {'pointcloud_topic': '/camera/rectified_1/depth_cloud'},
-            {'calibration_file': calib_file_1},
-            {'max_depth': 40.0}
-        ]
-    )
-
-    depth_viz_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='depth_visualizer_node',
-        name='depth_visualizer_0',
-        output='screen',
-        parameters=[
-            {'depth_topic': '/camera/rectified_0/depth_map'},
-            {'output_topic': '/camera/rectified_0/depth_map/depth_vis'},
-        ]
-    )
-    
-    depth_viz_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='depth_visualizer_node',
-        name='depth_visualizer_1',
-        output='screen',
-        parameters=[
-            {'depth_topic': '/camera/rectified_1/depth_map'},
-            {'output_topic': '/camera/rectified_1/depth_map/depth_vis'},
         ]
     )
     
@@ -157,7 +90,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'model_path': 'yolov8s_fp16.engine'},
-            {'image_topic': '/camera/rectified_0/left'},
+            {'image_topic': '/camera0/rectified'},
             {'detection_topic': '/yolo/detections_0'}
         ]
     )
@@ -169,34 +102,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'model_path': 'yolov8s_fp16.engine'},
-            {'image_topic': '/camera/rectified_1/left'},
+            {'image_topic': '/camera2/rectified'},
             {'detection_topic': '/yolo/detections_1'}
         ]
     )
-
-    # overlay_0 = launch_ros.actions.Node(
-    #     package='perception',
-    #     executable='bbox_overlay_node',
-    #     name='bbox_overlay_0',
-    #     output='screen',
-    #     parameters=[
-    #         {'image_topic': '/camera/rectified_0/left'},
-    #         {'detection_topic': '/yolo/detections_0'},
-    #         {'output_topic': '/camera/yolo_overlay_0'}
-    #     ]
-    # )
-
-    # overlay_1 = launch_ros.actions.Node(
-    #     package='perception',
-    #     executable='bbox_overlay_node',
-    #     name='bbox_overlay_1',
-    #     output='screen',
-    #     parameters=[
-    #         {'image_topic': '/camera/rectified_1/left'},
-    #         {'detection_topic': '/yolo/detections_1'},
-    #         {'output_topic': '/camera/yolo_overlay_1'}
-    #     ]
-    # )
 
     byte_track_node_0 = launch_ros.actions.Node(
         package='perception',
@@ -206,7 +115,7 @@ def generate_launch_description():
         parameters=[
             {'input_topic': '/yolo/detections_0'},
             {'output_topic': '/yolo/detections_0/tracked'},
-            {'image_topic': '/camera/rectified_0/left'},
+            {'image_topic': '/camera0/rectified'},
             {'calibration_file': calib_file_0},
 
         ]
@@ -220,7 +129,7 @@ def generate_launch_description():
         parameters=[
             {'input_topic': '/yolo/detections_1'},
             {'output_topic': '/yolo/detections_1/tracked'},
-            {'image_topic': '/camera/rectified_1/left'},
+            {'image_topic': '/camera2/rectified'},
             {'calibration_file': calib_file_1},
         ]
     )
@@ -232,25 +141,11 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'tracked_topic': '/yolo/detections_0/tracked'},
-            {'image_topic': '/camera/rectified_0/left'},
+            {'image_topic': '/camera0/rectified'},
             {'classifier_model_path': 'sign_classification_model.pt'},
             {'input_size': [320, 320]},  # [0, 0] for dynamic crop sizes
             {'class_ids_to_classify': [11]},  # e.g. [1, 2, 3]
             {'classification_topic': '/yolo/detections_0/tracked/classified'},
-        ]
-    )
-    
-    traffic_light_classification_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='traffic_light_classification_node',
-        name='traffic_light_classification_0',
-        output='screen',
-        parameters=[
-            {'tracked_topic': '/yolo/detections_0/tracked/classified'},
-            {'image_topic': '/camera/rectified_0/left'},
-            {'input_size': [0, 0]},
-            {'class_ids_to_classify': [9]},  # e.g. [1, 2, 3]
-            {'classification_topic': '/yolo/detections_0/tracked/classified/light'},
         ]
     )
     
@@ -261,25 +156,11 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'tracked_topic': '/yolo/detections_1/tracked'},
-            {'image_topic': '/camera/rectified_1/left'},
+            {'image_topic': '/camera2/rectified'},
             {'classifier_model_path': 'sign_classification_model.pt'},
             {'input_size': [320, 320]},  # [0, 0] for dynamic crop sizes
             {'class_ids_to_classify': [11]},  # e.g. [1, 2, 3]
             {'classification_topic': '/yolo/detections_1/tracked/classified'},
-        ]
-    )
-    
-    traffic_light_classification_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='traffic_light_classification_node',
-        name='traffic_light_classification_1',
-        output='screen',
-        parameters=[
-            {'tracked_topic': '/yolo/detections_1/tracked/classified'},
-            {'image_topic': '/camera/rectified_1/left'},
-            {'input_size': [0, 0]},
-            {'class_ids_to_classify': [9]},  # e.g. [1, 2, 3]
-            {'classification_topic': '/yolo/detections_1/tracked/classified/light'},
         ]
     )
     
@@ -289,9 +170,9 @@ def generate_launch_description():
         name='object_depth_fusion_node_0',
         output='screen',
         parameters=[
-            {'detection_topic': '/yolo/detections_0/tracked/classified/light'},
-            {'depth_topic': '/camera/rectified_0/depth_map'},
-            {'output_topic': '/yolo/detections_0/tracked/classified/light/depth'}
+            {'detection_topic': '/yolo/detections_0/tracked/classified'},
+            {'depth_topic': '/camera0/depth_map'},
+            {'output_topic': '/yolo/detections_0/tracked/classified/depth'}
         ]
     )
     
@@ -301,9 +182,9 @@ def generate_launch_description():
         name='object_depth_fusion_node_1',
         output='screen',
         parameters=[
-            {'detection_topic': '/yolo/detections_1/tracked/classified/light'},
-            {'depth_topic': '/camera/rectified_1/depth_map'},
-            {'output_topic': '/yolo/detections_1/tracked/classified/light/depth'}
+            {'detection_topic': '/yolo/detections_1/tracked/classified'},
+            {'depth_topic': '/camera2/depth_map'},
+            {'output_topic': '/yolo/detections_1/tracked/classified/depth'}
         ]
     )
     
@@ -313,9 +194,9 @@ def generate_launch_description():
         name='speed_estimator_node_0',
         output='screen',
         parameters=[
-            {'subscribe_topic': '/yolo/detections_0/tracked/classified/light/depth'},
+            {'subscribe_topic': '/yolo/detections_0/tracked/classified/depth'},
             {'calibration_file': calib_file_0},
-            {'publish_topic': '/yolo/detections_0/tracked/classified/light/depth/speed'}
+            {'publish_topic': '/yolo/detections_0/tracked/classified/depth/speed'}
         ]
     )
     
@@ -325,9 +206,9 @@ def generate_launch_description():
         name='speed_estimator_node_1',
         output='screen',
         parameters=[
-            {'subscribe_topic': '/yolo/detections_1/tracked/classified/light/depth'},
+            {'subscribe_topic': '/yolo/detections_1/tracked/classified/depth'},
             {'calibration_file': calib_file_1},
-            {'publish_topic': '/yolo/detections_1/tracked/classified/light/depth/speed'}
+            {'publish_topic': '/yolo/detections_1/tracked/classified/depth/speed'}
         ]
     )
 
@@ -338,8 +219,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'mapping_file': 'id_map.yaml'},
-            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/speed'},
-            {'map_topic': '/yolo/detections_0/tracked/classified/light/depth/speed/mapped'}
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed'},
+            {'map_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'}
         ]
     )
     
@@ -350,8 +231,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'mapping_file': 'coco_id_map.yaml'},
-            {'tracked_topic': '/yolo/detections_1/tracked/classified/light/depth/speed'},
-            {'map_topic': '/yolo/detections_1/tracked/classified/light/depth/speed/mapped'}
+            {'tracked_topic': '/yolo/detections_1/tracked/classified/depth/speed'},
+            {'map_topic': '/yolo/detections_1/tracked/classified/depth/speed/mapped'}
         ]
     )
 
@@ -361,8 +242,8 @@ def generate_launch_description():
         name='tracked_overlay_0',
         output='screen',
         parameters=[
-            {'image_topic': '/camera/rectified_0/left'},
-            {'tracked_topic': '/yolo/detections_0/tracked/classified/light/depth/speed/mapped'},
+            {'image_topic': '/camera0/rectified'},
+            {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'},
             {'output_topic': '/perception_img_visualizer_0'}
         ]
     )
@@ -373,8 +254,8 @@ def generate_launch_description():
         name='tracked_overlay_1',
         output='screen',
         parameters=[
-            {'image_topic': '/camera/rectified_1/left'},
-            {'tracked_topic': '/yolo/detections_1/tracked/classified/light/depth/speed/mapped'},
+            {'image_topic': '/camera2/rectified'},
+            {'tracked_topic': '/yolo/detections_1/tracked/classified/depth/speed/mapped'},
             {'output_topic': '/perception_img_visualizer_1'}
         ]
     )
@@ -383,24 +264,14 @@ def generate_launch_description():
         camera_gpu_node,
         delayed_manual_focus_node,
         sync_capture_node,
-        camera_rectification_node_0,
-        camera_rectification_node_1,
         stereo_depth_node_0,
         stereo_depth_node_1,
-        depth2pcl_node_0,
-        depth2pcl_node_1,
-        # depth_viz_0,
-        # depth_viz_1,
         yolov8_detection_0,
         # yolov8_detection_1,
-        # overlay_0,
-        # overlay_1,
         byte_track_node_0,
         # byte_track_node_1,
         classification_node_id11_0,
-        traffic_light_classification_0,
         # classification_node_id11_1,
-        # traffic_light_classification_1,
         object_depth_fusion_node_0,
         # object_depth_fusion_node_1,
         speed_estimator_node_0,
