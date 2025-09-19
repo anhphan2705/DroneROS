@@ -56,32 +56,6 @@ def generate_launch_description():
         period=10.0,
         actions=[manual_focus_node]
     )
-
-    stereo_depth_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='stereo_depth_node',
-        name='stereo_depth_node_0',
-        output='screen',
-        parameters=[
-            {'sub_left': '/camera0/rectified'},
-            {'sub_right': '/camera1/rectified'},
-            {'depth_publisher': '/camera0/depth_map'},
-            {'calibration_file': calib_file_0},
-        ]
-    )
-    
-    stereo_depth_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='stereo_depth_node',
-        name='stereo_depth_node_1',
-        output='screen',
-        parameters=[
-            {'sub_left': '/camera2/rectified'},
-            {'sub_right': '/camera3/rectified'},
-            {'depth_publisher': '/camera2/depth_map'},
-            {'calibration_file': calib_file_1},
-        ]
-    )
     
     yolov8_detection_0 = launch_ros.actions.Node(
         package='perception',
@@ -264,8 +238,6 @@ def generate_launch_description():
         camera_gpu_node,
         delayed_manual_focus_node,
         sync_capture_node,
-        # stereo_depth_node_0,
-        # stereo_depth_node_1,
         yolov8_detection_0,
         # yolov8_detection_1,
         byte_track_node_0,

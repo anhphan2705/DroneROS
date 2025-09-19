@@ -50,18 +50,18 @@ def load_calibration(calib_file: str):
     map_left  = read_side('stereo_map_left')
     map_right = read_side('stereo_map_right')
 
-    # --- Projection matrices (rectified) ---
-    P1 = fs.getNode('projection_matrix_left').mat()
-    P2 = fs.getNode('projection_matrix_right').mat()
+    # Intrinsics
+    M1 = fs.getNode('camera_matrix_left').mat()
+    # Extrinsics between cameras
+    T  = fs.getNode('translation_vector').mat()
     fs.release()
 
-    if P1 is None or P2 is None:
-        raise RuntimeError("Calibration file missing projection_matrix_left or projection_matrix_right")
+    if M1 is None or T is None:
+        raise RuntimeError("Calibration file missing camera matrix or translational vector")
 
-    fx = float(P1[0, 0])  # rectified focal length
-    Tx = float(P2[0, 3])  # usually = -fx * baseline
-    baseline_m = abs(Tx) / fx
-
+    fx = M1[0,0]
+    baseline_m = abs(T[0,0]) / 1000.0
+    
     return map_left, map_right, fx, baseline_m
 
 # This version manual cropping out odd pixel column to fit the 540x960
@@ -193,29 +193,57 @@ class CameraGpuNode(Node):
                 rois = [vpi.Image.view(vpi_bgr, r) for r in rects]
 
                 # ---- Rectify each ROI on CUDA using prebuilt warp maps ----
-                rectified_0L = rois[1].remap(self.warp_left_0,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                rectified_0R = rois[0].remap(self.warp_right_0, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                rectified_1L = rois[3].remap(self.warp_left_1,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                rectified_1R = rois[2].remap(self.warp_right_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                rectified_0R = rois[1].remap(self.warp_left_0,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                rectified_0L = rois[0].remap(self.warp_right_0, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                rectified_1R = rois[3].remap(self.warp_left_1,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                rectified_1L = rois[2].remap(self.warp_right_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
 
-                rectified_rois = [rectified_0R, rectified_0L, rectified_1R, rectified_1L]
+                rectified_rois = [rectified_0L, rectified_0R, rectified_1L, rectified_1R]
                 
-                # Stereo depth (pair 0 = [0R,0L], pair1 = [1R,1L])
+                # Stereo depth
                 depth_maps = []
-                for (left_img,right_img) in [(rectified_rois[1],rectified_rois[0]), (rectified_rois[3],rectified_rois[2])]:
-                    left_gray  = left_img.convert(vpi.Format.Y16_ER)
-                    right_gray = right_img.convert(vpi.Format.Y16_ER)
+                for (left_img,right_img) in [(rectified_rois[0],rectified_rois[1]), (rectified_rois[2],rectified_rois[3])]:
+                    left_gray  = left_img.convert(vpi.Format.Y16_ER, stream=self.vpi_stream)
+                    right_gray = right_img.convert(vpi.Format.Y16_ER, stream=self.vpi_stream)
+                    # cv2.imwrite("/tmp/left_rect.png", left_gray.cpu())
+                    # cv2.imwrite("/tmp/right_rect.png", right_gray.cpu())
+                    # # Make sure we convert to NumPy before merging
+                    # left_np  = left_gray.cpu()
+                    # right_np = right_gray.cpu()
+
+                    # # Ensure they are 8-bit single-channel for visualization
+                    # if left_np.dtype != np.uint8:
+                    #     left_np  = cv2.convertScaleAbs(left_np, alpha=(255.0/left_np.max() if left_np.max() > 0 else 1.0))
+                    # if right_np.dtype != np.uint8:
+                    #     right_np = cv2.convertScaleAbs(right_np, alpha=(255.0/right_np.max() if right_np.max() > 0 else 1.0))
+
+                    # overlay = cv2.merge([
+                    #     left_np,        # Red channel
+                    #     right_np,       # Green channel
+                    #     np.zeros_like(left_np)  # Blue = 0
+                    # ])
+
+                    # cv2.imwrite("/tmp/overlay.png", overlay)
                     disp = vpi.stereodisp(
-                        left_gray,
-                        right_gray,
+                        left=left_gray,
+                        right=right_gray,
                         backend=vpi.Backend.CUDA,
                         maxdisp=128,
                         mindisp=0,
                         window=3,
                         uniqueness=0.6,
-                        includediagonals = False,
+                        includediagonals=False,
+                        # numpasses=1,
+                        # quality=1,
+                        # confthreshold=32767,
+                        # quality=self.quality,
+                        # conftype=vpi.ConfidenceType.ABSOLUTE,
+                        # p1=3,
+                        # p2=48,
+                        # p2alpha=0,
                     )
                     disp_f32 = disp.convert(vpi.Format.F32).cpu()/32.0
+                    # self.get_logger().info(f"disp min={disp_f32.min():.2f}, max={disp_f32.max():.2f}, mean={disp_f32.mean():.2f}")
                     depth = np.zeros_like(disp_f32, dtype=np.float32)
                     valid = disp_f32 > 0
                     depth[valid] = (self.fx * self.baseline_m) / disp_f32[valid]
