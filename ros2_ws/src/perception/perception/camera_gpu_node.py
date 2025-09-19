@@ -13,64 +13,56 @@ from gi.repository import Gst
 # VPI (GPU ops)
 import vpi
 
-def load_rect_maps_2f32(calib_file: str):
+def load_calibration(calib_file: str):
     """
-    Returns 2-channel float32 maps (H,W,2) for left/right, where each pixel is (src_x, src_y).
-    Works whether YAML stored fixed-point (CV_16SC2 + CV_16U) or two float maps.
+    Load rectification maps + intrinsics from a stereo calibration file.
+
+    Returns:
+        map_left   (np.ndarray HxWx2, float32)
+        map_right  (np.ndarray HxWx2, float32)
+        fx         (float) focal length in px (rectified)
+        baseline_m (float) baseline in meters (rectified)
     """
     fs = cv2.FileStorage(calib_file, cv2.FILE_STORAGE_READ)
     if not fs.isOpened():
         raise RuntimeError(f"Cannot open calibration file {calib_file}")
 
-    def read_side(prefix_xy):  # e.g. 'stereo_map_left' or 'stereo_map_right'
-        # Many calibration writers save as: {prefix}_x : CV_16SC2  and {prefix}_y : CV_16U
+    # --- Rectification maps ---
+    def read_side(prefix_xy):
         m1 = fs.getNode(f"{prefix_xy}_x").mat()
         m2 = fs.getNode(f"{prefix_xy}_y").mat()
         if m1 is None or m2 is None:
             raise RuntimeError(f"Missing {prefix_xy}_x or {prefix_xy}_y in {calib_file}")
 
-        # Case A: fixed-point pair (common with m1type=cv.CV_16SC2)
-        if m1.ndim == 3 and m1.dtype == np.int16 and m2.ndim == 2 and m2.dtype in (np.uint16, np.int16, np.uint8):
-            map2f, _ = cv2.convertMaps(m1, m2, cv2.CV_32FC2)  # -> (H,W,2) float32
+        if m1.ndim == 3 and m1.dtype == np.int16:
+            map2f, _ = cv2.convertMaps(m1, m2, cv2.CV_32FC2)
             return np.ascontiguousarray(map2f, dtype=np.float32)
 
-        # Case B: two float 1-channel maps (H,W) each
-        if m1.ndim == 2 and m2.ndim == 2 and m1.dtype == np.float32 and m2.dtype == np.float32:
+        if m1.ndim == 2 and m1.dtype == np.float32 and m2.ndim == 2 and m2.dtype == np.float32:
             map2f = np.dstack([m1, m2]).astype(np.float32)
             return np.ascontiguousarray(map2f, dtype=np.float32)
 
-        # Case C: already a combined float XY map in _x (rare)
         if m1.ndim == 3 and m1.dtype == np.float32 and m1.shape[2] == 2:
             return np.ascontiguousarray(m1, dtype=np.float32)
 
-        raise RuntimeError(f"Unsupported map formats for {prefix_xy}: "
-                           f"m1={m1.dtype}{m1.shape}, m2={m2.dtype}{m2.shape}")
+        raise RuntimeError(f"Unsupported map formats for {prefix_xy}")
 
     map_left  = read_side('stereo_map_left')
     map_right = read_side('stereo_map_right')
+
+    # --- Projection matrices (rectified) ---
+    P1 = fs.getNode('projection_matrix_left').mat()
+    P2 = fs.getNode('projection_matrix_right').mat()
     fs.release()
-    return map_left, map_right
 
-# def build_vpi_warp(map_x: np.ndarray, map_y: np.ndarray):
-#     """
-#     Turn OpenCV rectification maps into a VPI WarpMap (VPI 3.1 compatible).
-#     map_x, map_y: (H, W) float32 arrays (pixel-space source coords).
-#     """
-#     assert map_x.shape == map_y.shape,
-#     assert map_x.dtype == np.float32 and map_y.dtype == np.float32, "maps must be float32"
-#     h, w = map_x.shape
+    if P1 is None or P2 is None:
+        raise RuntimeError("Calibration file missing projection_matrix_left or projection_matrix_right")
 
-#     # 1) Create grid and WarpMap for the *output* image size (the rectified ROI)
-#     grid = vpi.WarpGrid((w, h))
-#     warp = vpi.WarpMap(grid)
+    fx = float(P1[0, 0])  # rectified focal length
+    Tx = float(P2[0, 3])  # usually = -fx * baseline
+    baseline_m = abs(Tx) / fx
 
-#     # 2) Get a dense view into WarpMap and write the (x,y) source coordinates
-#     arr = np.asarray(warp)            # shape (h, w, 2), float32
-#     arr[..., 0] = map_x               # X
-#     arr[..., 1] = map_y               # Y
-
-#     return warp
-
+    return map_left, map_right, fx, baseline_m
 
 # This version manual cropping out odd pixel column to fit the 540x960
 def build_vpi_warp(map_x: np.ndarray, map_y: np.ndarray):
@@ -113,8 +105,8 @@ class CameraGpuNode(Node):
         self.BITRATE = self.get_parameter('bitrate_kbps').value
         
         # Load 2-channel float32 absolute-XY maps at ROI size (half-res)
-        L0_2f, R0_2f = load_rect_maps_2f32(self.get_parameter('calibration_file_0').value)
-        L1_2f, R1_2f = load_rect_maps_2f32(self.get_parameter('calibration_file_1').value)
+        L0_2f, R0_2f, self.fx, self.baseline_m= load_calibration(self.get_parameter('calibration_file_0').value)
+        L1_2f, R1_2f, _, _ = load_calibration(self.get_parameter('calibration_file_1').value)
 
         # Keep NumPy alive and wrap as VPI images (format: 2-channel float32)
         self.warp_left_0  = build_vpi_warp(L0_2f[...,0], L0_2f[...,1])
@@ -128,6 +120,10 @@ class CameraGpuNode(Node):
             self.create_publisher(Image, f'/camera{i}/rectified', 10)
             for i in range(4)
         ]
+        self.depth_pubs = [
+            self.create_publisher(Image, f'/camera{i}/depth_map', 10)
+            for i in range(2)
+        ]
 
         # ---- GStreamer pipeline ----
         pipeline_str = (
@@ -140,8 +136,6 @@ class CameraGpuNode(Node):
             f"x264enc bitrate={self.BITRATE} speed-preset=ultrafast tune=zerolatency key-int-max=5 ! "
             "rtph264pay config-interval=1 pt=96 ! "
             f"udpsink host={self.UDP_HOST} port={self.UDP_PORT} sync=false async=false "
-            # # Branch 2: appsink for GPU processing
-            # "t. ! queue ! appsink name=ros_sink emit-signals=true max-buffers=1 drop=true sync=false"
             # Local CPU branch
             "t. ! queue ! nvvidconv ! video/x-raw,format=NV12 ! "
             "appsink name=ros_sink emit-signals=true max-buffers=1 drop=true sync=false"
@@ -184,7 +178,7 @@ class CameraGpuNode(Node):
             # All heavy work on GPU
             with vpi.Backend.CUDA:
                 # NV12 -> BGR8 on CUDA (queued on our stream)
-                vpi_bgr = vpi_host.convert(vpi.Format.BGR8, stream=self.vpi_stream)
+                vpi_bgr  = vpi_host.convert(vpi.Format.BGR8, stream=self.vpi_stream)
 
                 # 4 even-sized quadrants
                 half_w = (w // 2) & ~1
@@ -205,6 +199,28 @@ class CameraGpuNode(Node):
                 rectified_1R = rois[2].remap(self.warp_right_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
 
                 rectified_rois = [rectified_0R, rectified_0L, rectified_1R, rectified_1L]
+                
+                # Stereo depth (pair 0 = [0R,0L], pair1 = [1R,1L])
+                depth_maps = []
+                for (left_img,right_img) in [(rectified_rois[1],rectified_rois[0]), (rectified_rois[3],rectified_rois[2])]:
+                    left_gray  = left_img.convert(vpi.Format.Y16_ER)
+                    right_gray = right_img.convert(vpi.Format.Y16_ER)
+                    disp = vpi.stereodisp(
+                        left_gray,
+                        right_gray,
+                        backend=vpi.Backend.CUDA,
+                        maxdisp=128,
+                        mindisp=0,
+                        window=3,
+                        uniqueness=0.6,
+                        includediagonals = False,
+                    )
+                    disp_f32 = disp.convert(vpi.Format.F32).cpu()/32.0
+                    depth = np.zeros_like(disp_f32, dtype=np.float32)
+                    valid = disp_f32 > 0
+                    depth[valid] = (self.fx * self.baseline_m) / disp_f32[valid]
+                    depth[depth < 0.02] = 0.0     # too close, usually invalid
+                    depth_maps.append(depth)
 
             # Sync once so all CUDA ops finish before CPU downloads
             self.vpi_stream.sync()
@@ -226,6 +242,13 @@ class CameraGpuNode(Node):
                 msg.header.stamp = now
                 msg.header.frame_id = f"camera{i}"
                 self.rect_pubs[i].publish(msg)
+                
+            # Publish depth maps (two stereo pairs)
+            for i, depth in enumerate(depth_maps):
+                depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='32FC1')
+                depth_msg.header.stamp = now
+                depth_msg.header.frame_id = f"depth{i}"
+                self.depth_pubs[i].publish(depth_msg)
 
         finally:
             buf.unmap(mapinfo)
