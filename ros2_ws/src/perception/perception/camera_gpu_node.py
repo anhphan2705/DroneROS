@@ -132,12 +132,12 @@ class CameraGpuNode(Node):
             f"framerate={self.FPS}/1,format=NV12 ! "
             "tee name=t "
             # Branch 1: UDP
-            "t. ! queue ! nvvidconv ! video/x-raw,format=I420 ! "
+            "t. ! queue leaky=2 max-size-buffers=1 ! nvvidconv ! video/x-raw,format=I420 ! "
             f"x264enc bitrate={self.BITRATE} speed-preset=ultrafast tune=zerolatency key-int-max=5 ! "
             "rtph264pay config-interval=1 pt=96 ! "
             f"udpsink host={self.UDP_HOST} port={self.UDP_PORT} sync=false async=false "
             # Local CPU branch
-            "t. ! queue ! nvvidconv ! video/x-raw,format=NV12 ! "
+            "t. ! queue leaky=2 max-size-buffers=1 ! nvvidconv ! video/x-raw,format=NV12 ! "
             "appsink name=ros_sink emit-signals=true max-buffers=1 drop=true sync=false"
         )
 
@@ -210,7 +210,7 @@ class CameraGpuNode(Node):
                         left=left_gray,
                         right=right_gray,
                         backend=vpi.Backend.CUDA,
-                        maxdisp=128,
+                        maxdisp=64,
                         mindisp=0,
                         window=3,
                         uniqueness=0.6,

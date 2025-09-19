@@ -42,7 +42,6 @@ setup(
             'classification_node = perception.classification_node:main',
             'speed_estimator_node = perception.speed_estimator_node:main',
             'id_mapper_node = perception.id_mapper_node:main',
-            'bag2mp4 = perception.bag2mp4:main',
         ],
     },
 )
