@@ -192,7 +192,7 @@ def generate_launch_description():
         name='id_mapper_node_0',
         output='screen',
         parameters=[
-            {'mapping_file': 'id_map.yaml'},
+            {'mapping_file': 'coco_id_map.yaml'},
             {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed'},
             {'map_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'}
         ]

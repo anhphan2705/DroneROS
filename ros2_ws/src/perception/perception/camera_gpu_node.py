@@ -177,7 +177,7 @@ class CameraGpuNode(Node):
             
             # All heavy work on GPU
             with vpi.Backend.CUDA:
-                # NV12 -> BGR8 on CUDA (queued on our stream)
+                # NV12 -> BGR8 on CUDA
                 vpi_bgr  = vpi_host.convert(vpi.Format.BGR8, stream=self.vpi_stream)
 
                 # 4 even-sized quadrants
@@ -205,25 +205,7 @@ class CameraGpuNode(Node):
                 for (left_img,right_img) in [(rectified_rois[0],rectified_rois[1]), (rectified_rois[2],rectified_rois[3])]:
                     left_gray  = left_img.convert(vpi.Format.Y16_ER, stream=self.vpi_stream)
                     right_gray = right_img.convert(vpi.Format.Y16_ER, stream=self.vpi_stream)
-                    # cv2.imwrite("/tmp/left_rect.png", left_gray.cpu())
-                    # cv2.imwrite("/tmp/right_rect.png", right_gray.cpu())
-                    # # Make sure we convert to NumPy before merging
-                    # left_np  = left_gray.cpu()
-                    # right_np = right_gray.cpu()
 
-                    # # Ensure they are 8-bit single-channel for visualization
-                    # if left_np.dtype != np.uint8:
-                    #     left_np  = cv2.convertScaleAbs(left_np, alpha=(255.0/left_np.max() if left_np.max() > 0 else 1.0))
-                    # if right_np.dtype != np.uint8:
-                    #     right_np = cv2.convertScaleAbs(right_np, alpha=(255.0/right_np.max() if right_np.max() > 0 else 1.0))
-
-                    # overlay = cv2.merge([
-                    #     left_np,        # Red channel
-                    #     right_np,       # Green channel
-                    #     np.zeros_like(left_np)  # Blue = 0
-                    # ])
-
-                    # cv2.imwrite("/tmp/overlay.png", overlay)
                     disp = vpi.stereodisp(
                         left=left_gray,
                         right=right_gray,
