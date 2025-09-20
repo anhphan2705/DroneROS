@@ -42,6 +42,7 @@ setup(
             'classification_node = perception.classification_node:main',
             'speed_estimator_node = perception.speed_estimator_node:main',
             'id_mapper_node = perception.id_mapper_node:main',
+            'stitch_stream_node = perception.stitch_stream_node:main',
         ],
     },
 )

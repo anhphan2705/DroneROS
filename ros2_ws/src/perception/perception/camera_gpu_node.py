@@ -121,11 +121,9 @@ class CameraGpuNode(Node):
             self.create_publisher(Image, f'/camera{i}/rectified', 10)
             for i in range(4)
         ]
-        self.depth_pubs = [
-            self.create_publisher(Image, f'/camera{i}/depth_map', 10)
-            for i in range(2)
-        ]
-
+        self.depth_pub_0 = self.create_publisher(Image, f'/camera0/depth_map', 10)
+        self.depth_pub_1 = self.create_publisher(Image, f'/camera2/depth_map', 10)
+        
         # ---- GStreamer pipeline ----
         pipeline_str = (
             f"nvarguscamerasrc sensor-id=0 ! "
@@ -291,7 +289,10 @@ class CameraGpuNode(Node):
                     depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='32FC1')
                     depth_msg.header.stamp = stamp
                     depth_msg.header.frame_id = f"depth{i}"
-                    self.depth_pubs[i].publish(depth_msg)
+                    if i == 0:
+                        self.depth_pub_0.publish(depth_msg)
+                    else:
+                        self.depth_pub_1.publish(depth_msg)
             except Exception as e:
                 self.get_logger().error(f"Processing error: {e}")
 

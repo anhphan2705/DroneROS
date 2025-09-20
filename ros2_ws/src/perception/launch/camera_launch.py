@@ -233,23 +233,45 @@ def generate_launch_description():
             {'output_topic': '/perception_img_visualizer_1'}
         ]
     )
+    stitch_stream_node = launch_ros.actions.Node(
+        package='perception',
+        executable='stitch_stream_node',
+        name='stitch_stream_node',
+        output='screen',
+        parameters=[
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 5700},
+            {'bitrate_kbps': 2500},
+            {'topics': [
+                '/perception_img_visualizer_0',
+                '/perception_img_visualizer_1',
+                '/camera1/rectified',
+                '/camera3/rectified'
+            ]},
+            {'out_width': 1280},
+            {'out_height': 720},
+            {'fps': 30},
+            {'output_mode': 'both'}
+        ]
+    )
 
     return launch.LaunchDescription([
         camera_gpu_node,
         delayed_manual_focus_node,
         sync_capture_node,
         yolov8_detection_0,
-        # yolov8_detection_1,
+        yolov8_detection_1,
         byte_track_node_0,
-        # byte_track_node_1,
+        byte_track_node_1,
         classification_node_id11_0,
-        # classification_node_id11_1,
+        classification_node_id11_1,
         object_depth_fusion_node_0,
-        # object_depth_fusion_node_1,
+        object_depth_fusion_node_1,
         speed_estimator_node_0,
-        # speed_estimator_node_1,
+        speed_estimator_node_1,
         id_mapper_node_0,
-        # id_mapper_node_1,
+        id_mapper_node_1,
         tracked_overlay_0,
-        # tracked_overlay_1,
+        tracked_overlay_1,
+        # stitch_stream_node,
     ])
