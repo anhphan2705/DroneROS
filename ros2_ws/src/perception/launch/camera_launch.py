@@ -244,8 +244,8 @@ def generate_launch_description():
             {'bitrate_kbps': 2500},
             {'topics': [
                 '/perception_img_visualizer_0',
-                '/perception_img_visualizer_1',
                 '/camera1/rectified',
+                '/perception_img_visualizer_1',
                 '/camera3/rectified'
             ]},
             {'out_width': 1280},

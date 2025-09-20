@@ -22,8 +22,8 @@ class StitchStreamNode(Node):
         self.declare_parameter('bitrate_kbps', 2500)
         self.declare_parameter('topics', [
             '/perception_img_visualizer_0',
-            '/perception_img_visualizer_1',
             '/camera1/rectified',
+            '/perception_img_visualizer_1',
             '/camera3/rectified'
         ])
         self.declare_parameter('out_width', 1280)
@@ -41,6 +41,7 @@ class StitchStreamNode(Node):
         self.MODE     = self.get_parameter('output_mode').value.lower()
         
         self.frames = {t: None for t in self.topics}
+        self.vpi_stream = vpi.Stream()
         
         # ROS publisher for stitched image
         if self.MODE in ("ros", "both"):
@@ -82,12 +83,12 @@ class StitchStreamNode(Node):
                 self.get_logger().error(f"Failed to convert image from {topic}: {e}")
         return cb
 
-    def vpi_resize(self, img, w, h):
-        # CPU numpy → VPI
-        with vpi.Backend.PVA:
-            vpi_in = vpi.asimage(img)
-            vpi_resized = vpi_in.resize((w, h))
-            return vpi_resized.cpu()
+    # def vpi_resize(self, img, w, h):
+    #     # CPU numpy → VPI
+    #     with vpi.Backend.CUDA:
+    #         vpi_in = vpi.asimage(img)
+    #         vpi_resized = vpi_in.rescale((w, h))
+    #         return vpi_resized.cpu()
 
     def loop(self):
         while not self._stop and rclpy.ok():
@@ -97,19 +98,21 @@ class StitchStreamNode(Node):
                 continue
 
             try:
-                # Compute quadrant size
-                q_w = self.OUT_W // 2
-                q_h = self.OUT_H // 2
+                # # Compute quadrant size
+                # q_w = self.OUT_W // 2
+                # q_h = self.OUT_H // 2
 
-                # Resize quadrants
-                resized = []
-                for t in self.topics:
-                    r = self.vpi_resize(self.frames[t], q_w, q_h)
-                    resized.append(r)
+                # # Resize quadrants
+                # resized = []
+                # for t in self.topics:
+                #     r = self.vpi_resize(self.frames[t], q_w, q_h)
+                #     resized.append(r)
 
-                # Stitch into one frame
-                top = np.hstack((resized[0], resized[1]))
-                bot = np.hstack((resized[2], resized[3]))
+                # # Stitch into one frame
+                # top = np.hstack((resized[0], resized[1]))
+                # bot = np.hstack((resized[2], resized[3]))
+                top = np.hstack((self.frames[0], self.frames[1]))
+                bot = np.hstack((self.frames[2], self.frames[3]))
                 stitched = np.vstack((top, bot))
 
                 # ---- Publish to ROS ----
