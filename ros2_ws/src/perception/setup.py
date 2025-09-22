@@ -35,7 +35,6 @@ setup(
             'autofocus_node = perception.autofocus_node:main',
             'manual_focus_node = perception.manual_focus_node:main',
             'sync_capture_node = perception.sync_capture_node:main',
-            'stereo_depth_node = perception.stereo_depth_node:main',
             'object_detection_node = perception.object_detection_node:main',
             'byte_track_node = perception.byte_track_node:main',
             'tracked_bbox_overlay_node = perception.tracked_bbox_overlay_node:main',
@@ -43,7 +42,7 @@ setup(
             'classification_node = perception.classification_node:main',
             'speed_estimator_node = perception.speed_estimator_node:main',
             'id_mapper_node = perception.id_mapper_node:main',
-            'bag2mp4 = perception.bag2mp4:main',
+            'stitch_stream_node = perception.stitch_stream_node:main',
         ],
     },
 )

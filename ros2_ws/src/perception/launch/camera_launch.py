@@ -56,32 +56,6 @@ def generate_launch_description():
         period=10.0,
         actions=[manual_focus_node]
     )
-
-    stereo_depth_node_0 = launch_ros.actions.Node(
-        package='perception',
-        executable='stereo_depth_node',
-        name='stereo_depth_node_0',
-        output='screen',
-        parameters=[
-            {'sub_left': '/camera0/rectified'},
-            {'sub_right': '/camera1/rectified'},
-            {'depth_publisher': '/camera0/depth_map'},
-            {'calibration_file': calib_file_0},
-        ]
-    )
-    
-    stereo_depth_node_1 = launch_ros.actions.Node(
-        package='perception',
-        executable='stereo_depth_node',
-        name='stereo_depth_node_1',
-        output='screen',
-        parameters=[
-            {'sub_left': '/camera2/rectified'},
-            {'sub_right': '/camera3/rectified'},
-            {'depth_publisher': '/camera2/depth_map'},
-            {'calibration_file': calib_file_1},
-        ]
-    )
     
     yolov8_detection_0 = launch_ros.actions.Node(
         package='perception',
@@ -218,7 +192,7 @@ def generate_launch_description():
         name='id_mapper_node_0',
         output='screen',
         parameters=[
-            {'mapping_file': 'id_map.yaml'},
+            {'mapping_file': 'coco_id_map.yaml'},
             {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed'},
             {'map_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'}
         ]
@@ -244,7 +218,10 @@ def generate_launch_description():
         parameters=[
             {'image_topic': '/camera0/rectified'},
             {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'},
-            {'output_topic': '/perception_img_visualizer_0'}
+            {'output_topic': '/perception_img_visualizer_0'},
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 6000},
+            {'source_id': 0}
         ]
     )
      
@@ -256,7 +233,31 @@ def generate_launch_description():
         parameters=[
             {'image_topic': '/camera2/rectified'},
             {'tracked_topic': '/yolo/detections_1/tracked/classified/depth/speed/mapped'},
-            {'output_topic': '/perception_img_visualizer_1'}
+            {'output_topic': '/perception_img_visualizer_1'},
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 6001},
+            {'source_id': 2}
+        ]
+    )
+    stitch_stream_node = launch_ros.actions.Node(
+        package='perception',
+        executable='stitch_stream_node',
+        name='stitch_stream_node',
+        output='screen',
+        parameters=[
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 5700},
+            {'bitrate_kbps': 2500},
+            {'topics': [
+                '/perception_img_visualizer_0',
+                '/camera1/rectified',
+                '/perception_img_visualizer_1',
+                '/camera3/rectified'
+            ]},
+            {'out_width': 1280},
+            {'out_height': 720},
+            {'fps': 30},
+            {'output_mode': 'both'}
         ]
     )
 
@@ -264,20 +265,19 @@ def generate_launch_description():
         camera_gpu_node,
         delayed_manual_focus_node,
         sync_capture_node,
-        stereo_depth_node_0,
-        stereo_depth_node_1,
         yolov8_detection_0,
-        # yolov8_detection_1,
+        yolov8_detection_1,
         byte_track_node_0,
-        # byte_track_node_1,
+        byte_track_node_1,
         classification_node_id11_0,
-        # classification_node_id11_1,
+        classification_node_id11_1,
         object_depth_fusion_node_0,
-        # object_depth_fusion_node_1,
+        object_depth_fusion_node_1,
         speed_estimator_node_0,
-        # speed_estimator_node_1,
+        speed_estimator_node_1,
         id_mapper_node_0,
-        # id_mapper_node_1,
+        id_mapper_node_1,
         tracked_overlay_0,
-        # tracked_overlay_1,
+        tracked_overlay_1,
+        # stitch_stream_node,
     ])
