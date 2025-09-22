@@ -218,7 +218,10 @@ def generate_launch_description():
         parameters=[
             {'image_topic': '/camera0/rectified'},
             {'tracked_topic': '/yolo/detections_0/tracked/classified/depth/speed/mapped'},
-            {'output_topic': '/perception_img_visualizer_0'}
+            {'output_topic': '/perception_img_visualizer_0'},
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 6000},
+            {'source_id': 0}
         ]
     )
      
@@ -230,7 +233,10 @@ def generate_launch_description():
         parameters=[
             {'image_topic': '/camera2/rectified'},
             {'tracked_topic': '/yolo/detections_1/tracked/classified/depth/speed/mapped'},
-            {'output_topic': '/perception_img_visualizer_1'}
+            {'output_topic': '/perception_img_visualizer_1'},
+            {'udp_host': '192.168.0.254'},
+            {'udp_port': 6001},
+            {'source_id': 2}
         ]
     )
     stitch_stream_node = launch_ros.actions.Node(

@@ -293,6 +293,9 @@ class CameraGpuNode(Node):
                         self.depth_pub_0.publish(depth_msg)
                     else:
                         self.depth_pub_1.publish(depth_msg)
+                
+                del raw_full, rect_np, depth_maps, disp_list, rectified_rois, vpi_bgr, vpi_host
+
             except Exception as e:
                 self.get_logger().error(f"Processing error: {e}")
 
