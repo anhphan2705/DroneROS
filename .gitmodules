@@ -7,3 +7,7 @@
 [submodule "ByteTrack"]
 	path = ByteTrack
 	url = https://github.com/anhphan2705/ByteTrack_MultiOT.git
+[submodule "opencv_gst_install/opencv"]
+	path = opencv_gst_install/opencv
+	url = https://github.com/opencv/opencv.git
+	branch = 4.10.0
