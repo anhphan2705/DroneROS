@@ -11,3 +11,6 @@
 	path = opencv_gst_install/opencv
 	url = https://github.com/opencv/opencv.git
 	branch = 4.10.0
+[submodule "opencv_gst_install/opencv_contrib"]
+	path = opencv_gst_install/opencv_contrib
+	url = https://github.com/opencv/opencv_contrib.git
