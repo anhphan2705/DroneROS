@@ -4,3 +4,6 @@
 [submodule "rtl8852au"]
 	path = rtl8852au
 	url = https://github.com/lwfinger/rtl8852au.git
+[submodule "ByteTrack"]
+	path = ByteTrack
+	url = https://github.com/anhphan2705/ByteTrack_MultiOT.git
