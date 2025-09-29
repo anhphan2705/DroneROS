@@ -1,0 +1,5 @@
+Clone bytetrack from git
+
+add this line in .bashrc to prevent mismatch with actual YOLOX and not the file within ByteTrack
+
+export PYTHONPATH=$PYTHONPATH:/home/anh-orinnano/DroneROS/ByteTrack
