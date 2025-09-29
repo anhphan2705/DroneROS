@@ -4,6 +4,13 @@
 [submodule "rtl8852au"]
 	path = rtl8852au
 	url = https://github.com/lwfinger/rtl8852au.git
-[submodule "third_party/YOLOX"]
-	path = third_party/YOLOX
-	url = https://github.com/Megvii-BaseDetection/YOLOX.git
+[submodule "ByteTrack"]
+	path = ByteTrack
+	url = https://github.com/anhphan2705/ByteTrack_MultiOT.git
+[submodule "opencv_gst_install/opencv"]
+	path = opencv_gst_install/opencv
+	url = https://github.com/opencv/opencv.git
+	branch = 4.10.0
+[submodule "opencv_gst_install/opencv_contrib"]
+	path = opencv_gst_install/opencv_contrib
+	url = https://github.com/opencv/opencv_contrib.git
