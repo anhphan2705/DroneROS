@@ -4,3 +4,6 @@
 [submodule "rtl8852au"]
 	path = rtl8852au
 	url = https://github.com/lwfinger/rtl8852au.git
+[submodule "third_party/YOLOX"]
+	path = third_party/YOLOX
+	url = https://github.com/Megvii-BaseDetection/YOLOX.git
