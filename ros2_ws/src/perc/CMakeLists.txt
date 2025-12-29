@@ -49,6 +49,10 @@ ament_target_dependencies(camera_capture_node
 install(TARGETS camera_capture_node
   DESTINATION lib/${PROJECT_NAME}
 )
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 # ============================
 # Disable tests for RT builds
