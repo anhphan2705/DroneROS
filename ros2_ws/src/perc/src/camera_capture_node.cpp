@@ -13,72 +13,109 @@ class CameraCaptureNode final : public rclcpp::Node
 {
 public:
     CameraCaptureNode()
-    : Node("camera_capture_node",
-            rclcpp::NodeOptions().use_intra_process_comms(true))
+    : Node(
+        "camera_capture_node",
+        rclcpp::NodeOptions().use_intra_process_comms(true))
     {
-        // ---- Params ----
+        // ---------------- Parameters ----------------
         sensor_id_ = declare_parameter<int>("sensor_id", 0);
         width_     = declare_parameter<int>("width", 1920);
         height_    = declare_parameter<int>("height", 1080);
         fps_       = declare_parameter<int>("fps", 60);
         frame_id_  = declare_parameter<std::string>("frame_id", "camera");
         topic_     = declare_parameter<std::string>("topic", "/camera/image_nv12");
+        debug_rgb_ = declare_parameter<bool>("debug_rgb", false);
 
-        // QoS: latest only, low latency
+        // ---------------- QoS ----------------
         rclcpp::QoS qos(rclcpp::KeepLast(1));
         qos.best_effort();
         qos.durability_volatile();
 
         pub_ = create_publisher<sensor_msgs::msg::Image>(topic_, qos);
 
-        // Pre-size the message buffer once (NV12 = H*W*3/2)
-        const size_t nv12_bytes = static_cast<size_t>(width_) * static_cast<size_t>(height_) * 3 / 2;
+        // ---------------- NV12 message (preallocated) ----------------
+        const size_t nv12_bytes =
+        static_cast<size_t>(width_) * static_cast<size_t>(height_) * 3 / 2;
+
         msg_ = std::make_unique<sensor_msgs::msg::Image>();
         msg_->header.frame_id = frame_id_;
-        msg_->height = static_cast<uint32_t>(height_);
-        msg_->width  = static_cast<uint32_t>(width_);
-        msg_->encoding = "nv12";                 // not a REP-105 standard, but works if you control consumers
+        msg_->height = height_;
+        msg_->width  = width_;
+        msg_->encoding = "nv12";
         msg_->is_bigendian = false;
-        msg_->step = static_cast<uint32_t>(width_); // Y plane stride in bytes for tightly packed NV12
+        msg_->step = width_;
         msg_->data.resize(nv12_bytes);
 
-        // ---- GStreamer init + pipeline ----
+        // ---------------- Debug RGB publisher ----------------
+        if (debug_rgb_) {
+            debug_pub_ = create_publisher<sensor_msgs::msg::Image>(
+                "/camera/image_rgb8", qos);
+
+            debug_msg_.header.frame_id = frame_id_;
+            debug_msg_.height = height_;
+            debug_msg_.width  = width_;
+            debug_msg_.encoding = "rgb8";
+            debug_msg_.is_bigendian = false;
+            debug_msg_.step = width_ * 3;
+            debug_msg_.data.resize(width_ * height_ * 3);
+        }
+
+        // ---------------- GStreamer ----------------
         gst_init(nullptr, nullptr);
 
-        // IMPORTANT: we convert to CPU-visible NV12 for appsink mapping.
-        // Later "Phase 2": keep NVMM and import via NvBufSurface to CUDA (true zero-copy).
-        pipeline_str_ =
-        "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
-        "video/x-raw(memory:NVMM),width=" + std::to_string(width_) +
-        ",height=" + std::to_string(height_) +
-        ",framerate=" + std::to_string(fps_) + "/1,format=NV12 ! "
-        "queue leaky=2 max-size-buffers=1 ! "
-        "nvvidconv ! video/x-raw,format=NV12 ! "
-        "appsink name=ros_sink max-buffers=1 drop=true sync=false";
+        if (debug_rgb_) {
+            pipeline_str_ =
+                "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
+                "video/x-raw(memory:NVMM),width=" + std::to_string(width_) +
+                ",height=" + std::to_string(height_) +
+                ",framerate=" + std::to_string(fps_) + "/1,format=NV12 ! "
+                "tee name=t "
+                "t. ! queue leaky=2 max-size-buffers=1 ! "
+                "nvvidconv ! video/x-raw,format=NV12 ! "
+                "appsink name=nv12_sink max-buffers=1 drop=true sync=false "
+                "t. ! queue leaky=2 max-size-buffers=1 ! "
+                "nvvidconv ! video/x-raw,format=BGRx ! "
+                "appsink name=rgb_sink max-buffers=1 drop=true sync=false";
+        } else {
+            pipeline_str_ =
+                "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
+                "video/x-raw(memory:NVMM),width=" + std::to_string(width_) +
+                ",height=" + std::to_string(height_) +
+                ",framerate=" + std::to_string(fps_) + "/1,format=NV12 ! "
+                "queue leaky=2 max-size-buffers=1 ! "
+                "nvvidconv ! video/x-raw,format=NV12 ! "
+                "appsink name=ros_sink max-buffers=1 drop=true sync=false";
+        }
 
         RCLCPP_INFO(get_logger(), "GStreamer pipeline:\n%s", pipeline_str_.c_str());
 
         GError *err = nullptr;
         pipeline_ = gst_parse_launch(pipeline_str_.c_str(), &err);
         if (!pipeline_ || err) {
-        std::string e = err ? err->message : "unknown";
-        if (err) g_error_free(err);
-        throw std::runtime_error("Failed to create pipeline: " + e);
+            std::string e = err ? err->message : "unknown";
+            if (err) g_error_free(err);
+            throw std::runtime_error("Failed to create pipeline: " + e);
         }
 
-        GstElement *sink = gst_bin_get_by_name(GST_BIN(pipeline_), "ros_sink");
-        appsink_ = GST_APP_SINK(sink);
-        gst_object_unref(sink);
+        // ---------------- Get appsinks ----------------
+        if (debug_rgb_) {
+            GstElement *nv12 = gst_bin_get_by_name(GST_BIN(pipeline_), "nv12_sink");
+            GstElement *rgb  = gst_bin_get_by_name(GST_BIN(pipeline_), "rgb_sink");
 
-        // Make appsink “pull” mode (we’ll pull in our own thread)
-        gst_app_sink_set_emit_signals(appsink_, FALSE);
-        gst_app_sink_set_drop(appsink_, TRUE);
-        gst_app_sink_set_max_buffers(appsink_, 1);
+            nv12_appsink_ = GST_APP_SINK(nv12);
+            rgb_appsink_  = GST_APP_SINK(rgb);
 
-        // Start pipeline
+            gst_object_unref(nv12);
+            gst_object_unref(rgb);
+        } else {
+            GstElement *sink = gst_bin_get_by_name(GST_BIN(pipeline_), "ros_sink");
+            nv12_appsink_ = GST_APP_SINK(sink);
+            gst_object_unref(sink);
+        }
+
         gst_element_set_state(pipeline_, GST_STATE_PLAYING);
 
-        // Start capture thread
+        // ---------------- Thread ----------------
         running_.store(true);
         capture_thread_ = std::thread(&CameraCaptureNode::captureLoop, this);
     }
@@ -86,82 +123,97 @@ public:
     ~CameraCaptureNode() override
     {
         running_.store(false);
-        if (capture_thread_.joinable()) capture_thread_.join();
+        if (capture_thread_.joinable()) {
+            capture_thread_.join();
+        }
 
         if (pipeline_) {
-        gst_element_set_state(pipeline_, GST_STATE_NULL);
-        gst_object_unref(pipeline_);
-        pipeline_ = nullptr;
-        appsink_ = nullptr;
+            gst_element_set_state(pipeline_, GST_STATE_NULL);
+            gst_object_unref(pipeline_);
+            pipeline_ = nullptr;
         }
     }
 
 private:
     void captureLoop()
     {
-        // Pull newest sample; because drop=true and max-buffers=1, we get latest.
         while (running_.load() && rclcpp::ok()) {
-        GstSample *sample = gst_app_sink_try_pull_sample(appsink_, 100000); // 100ms
-        if (!sample) continue;
+            // -------- NV12 --------
+            GstSample *nv12_sample =
+                gst_app_sink_try_pull_sample(nv12_appsink_, 100000);
+            if (!nv12_sample) continue;
 
-        GstBuffer *buffer = gst_sample_get_buffer(sample);
-        GstCaps *caps = gst_sample_get_caps(sample);
+            GstBuffer *nv12_buf = gst_sample_get_buffer(nv12_sample);
+            GstMapInfo map;
 
-        if (!buffer || !caps) {
-            gst_sample_unref(sample);
-            continue;
-        }
+            if (nv12_buf && gst_buffer_map(nv12_buf, &map, GST_MAP_READ)) {
+                const size_t expected =
+                static_cast<size_t>(width_) * static_cast<size_t>(height_) * 3 / 2;
 
-        // Validate dimensions from caps (optional)
-        GstStructure *s = gst_caps_get_structure(caps, 0);
-        int w = 0, h = 0;
-        gst_structure_get_int(s, "width", &w);
-        gst_structure_get_int(s, "height", &h);
-
-        if (w != width_ || h != height_) {
-            // If caps mismatch, skip (or reallocate once if you want dynamic)
-            gst_sample_unref(sample);
-            continue;
-        }
-
-        GstMapInfo map;
-        if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-            const size_t expected = static_cast<size_t>(width_) * static_cast<size_t>(height_) * 3 / 2;
-            if (map.size >= expected) {
-            // Timestamp near capture (using ROS clock)
-            msg_->header.stamp = this->get_clock()->now();
-
-            // Copy NV12 bytes into preallocated buffer (single memcpy)
-            std::memcpy(msg_->data.data(), map.data, expected);
-
-            // Publish (intra-process helps; QoS keeps it lean)
-            pub_->publish(*msg_);
+                if (map.size >= expected) {
+                    msg_->header.stamp = get_clock()->now();
+                    std::memcpy(msg_->data.data(), map.data, expected);
+                    pub_->publish(*msg_);
+                }
+                gst_buffer_unmap(nv12_buf, &map);
             }
-            gst_buffer_unmap(buffer, &map);
-        }
+            gst_sample_unref(nv12_sample);
 
-        gst_sample_unref(sample);
+            // -------- RGB DEBUG --------
+            if (debug_rgb_) {
+                GstSample *rgb_sample =
+                    gst_app_sink_try_pull_sample(rgb_appsink_, 0);
+
+                if (rgb_sample) {
+                        GstBuffer *rgb_buf = gst_sample_get_buffer(rgb_sample);
+                        GstMapInfo rgb_map;
+
+                        if (rgb_buf && gst_buffer_map(rgb_buf, &rgb_map, GST_MAP_READ)) {
+                            const size_t pixels = static_cast<size_t>(width_) * static_cast<size_t>(height_);
+
+                            // BGRx → RGB (drop alpha channel)
+                            uint8_t *dst = debug_msg_.data.data();
+                            uint8_t *src = rgb_map.data;
+
+                            for (size_t i = 0, j = 0; i < pixels; ++i) {
+                                dst[j++] = src[i * 4 + 2]; // R
+                                dst[j++] = src[i * 4 + 1]; // G
+                                dst[j++] = src[i * 4 + 0]; // B
+                        }
+
+                        debug_msg_.header.stamp = msg_->header.stamp;
+                        debug_pub_->publish(debug_msg_);
+
+                        gst_buffer_unmap(rgb_buf, &rgb_map);
+                    }
+
+                    gst_sample_unref(rgb_sample);
+                }
+            }
         }
     }
 
-    // Params
+    // ---------------- Members ----------------
     int sensor_id_{0}, width_{1920}, height_{1080}, fps_{60};
-    std::string frame_id_{"camera"};
-    std::string topic_{"/camera/image_nv12"};
+    bool debug_rgb_{false};
+    std::string frame_id_;
+    std::string topic_;
 
-    // ROS
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_;
     std::unique_ptr<sensor_msgs::msg::Image> msg_;
 
-    // GStreamer
-    std::string pipeline_str_;
-    GstElement *pipeline_{nullptr};
-    GstAppSink *appsink_{nullptr};
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_pub_;
+    sensor_msgs::msg::Image debug_msg_;
 
-    // Thread
+    GstElement *pipeline_{nullptr};
+    GstAppSink *nv12_appsink_{nullptr};
+    GstAppSink *rgb_appsink_{nullptr};
+    std::string pipeline_str_;
+
     std::atomic<bool> running_{false};
     std::thread capture_thread_;
 };
+
 
 int main(int argc, char **argv)
 {
