@@ -411,8 +411,8 @@ class StereoCalibrator:
         self.save_parameters(output_base_dir="calibrated_params", pair_id=pair_id)
 
 def main():
-    left_dir = 'camera3'
-    right_dir = 'camera2'
+    left_dir = 'camera2'
+    right_dir = 'camera3'
     pair = 1
     calibrator = StereoCalibrator(
         left_images_dir=left_dir, 
