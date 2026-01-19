@@ -219,10 +219,10 @@ class CameraGpuNode(Node):
                     rois = [vpi.Image.view(vpi_bgr, r) for r in rects]
 
                     # ---- Rectify each ROI on CUDA using prebuilt warp maps ----
-                    rectified_0R = rois[1].remap(self.warp_left_0,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                    rectified_0L = rois[0].remap(self.warp_right_0, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                    rectified_1R = rois[3].remap(self.warp_left_1,  interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
-                    rectified_1L = rois[2].remap(self.warp_right_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                    rectified_0L = rois[0].remap(self.warp_left_0, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                    rectified_0R = rois[1].remap(self.warp_right_0, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                    rectified_1L = rois[2].remap(self.warp_left_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
+                    rectified_1R = rois[3].remap(self.warp_right_1, interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO, stream=self.vpi_stream)
 
                     rectified_rois = [rectified_0L, rectified_0R, rectified_1L, rectified_1R]
                     
