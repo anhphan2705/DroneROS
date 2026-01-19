@@ -29,7 +29,7 @@ def generate_launch_description():
             {'fps': 60},
             {'udp_host': '192.168.0.254'},
             {'udp_port': 5600},
-            {'bitrate_kbps': 2500},
+            {'bitrate_kbps': 2000},
             {'calibration_file_0': calib_file_0},
             {'calibration_file_1': calib_file_1},
         ]
