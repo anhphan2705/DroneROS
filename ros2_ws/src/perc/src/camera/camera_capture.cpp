@@ -9,6 +9,9 @@
 
 #include <chrono>
 
+#include <gst/gst.h>
+#include <gst/app/gstappsink.h>
+
 CameraCapture::CameraCapture() = default;
 
 CameraCapture::~CameraCapture()
@@ -52,20 +55,29 @@ bool CameraCapture::initGStreamer()
     if (!pipeline_) return false;
 
     GstElement* sink = gst_bin_get_by_name(GST_BIN(pipeline_), "nvmm_sink");
+    if (!sink) return false;
+
     appsink_ = GST_APP_SINK(sink);
     gst_object_unref(sink);
+
+    if (!appsink_) return false;
 
     gst_app_sink_set_emit_signals(appsink_, FALSE);
     gst_app_sink_set_drop(appsink_, TRUE);
     gst_app_sink_set_max_buffers(appsink_, 1);
 
-    gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+    GstStateChangeReturn ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        return false;
+    }
     return true;
 }
 
 bool CameraCapture::grab(GpuFrame& frame)
 {
-    GstSample* sample = gst_app_sink_try_pull_sample(appsink_, 100000);
+    releaseGpuFrame(frame);
+
+    GstSample* sample = gst_app_sink_try_pull_sample(appsink_, GST_MSECOND * 100);
     if (!sample) return false;
 
     GstBuffer* buffer = gst_sample_get_buffer(sample);
@@ -74,18 +86,22 @@ bool CameraCapture::grab(GpuFrame& frame)
         return false;
     }
 
-    // Timestamp
     auto now = std::chrono::steady_clock::now().time_since_epoch();
     frame.timestamp_ns =
         std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
 
     frame.width = width_;
     frame.height = height_;
+    frame.sample = sample;
 
     bool ok = importNvmmToVpi(buffer, frame);
+    if (!ok) {
+        gst_sample_unref(sample);
+        frame.sample = nullptr;
+        return false;
+    }
 
-    gst_sample_unref(sample);
-    return ok;
+    return true;
 }
 
 bool CameraCapture::importNvmmToVpi(GstBuffer *buffer, GpuFrame &frame)

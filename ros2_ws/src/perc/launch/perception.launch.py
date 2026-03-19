@@ -29,7 +29,7 @@ def generate_launch_description():
             {'topic': '/camera/image_nv12'},
 
             # Debug / visualization
-            {'debug_rgb': False},
+            {'debug_rgb': True},
         ]
     )
 
