@@ -119,20 +119,18 @@ bool CameraCapture::importNvmmToVpi(GstBuffer *buffer, GpuFrame &frame)
         return false;
     }
 
-    // Create VPI image wrapper around NVMM buffer (ZERO COPY)
-    VPIImageWrapperParams wrap{};
-    wrap.bufferType = VPI_IMAGE_BUFFER_NVBUFFER;
+    VPIImageData data{};
+    data.bufferType = VPI_IMAGE_BUFFER_NVBUFFER;
+    data.buffer.fd = surface->surfaceList[0].bufferDesc;
 
-    // IMPORTANT: This union field name depends on VPI build.
-    // On Jetson it is typically "nvbuffer".
-    wrap.buffer.nvbuffer.surface = surface;
-    wrap.buffer.nvbuffer.planeIndex = 0;
+    VPIImageWrapperParams params;
+    VPIStatus st = vpiInitImageWrapperParams(&params);
+    if (st != VPI_SUCCESS) {
+        gst_buffer_unmap(buffer, &map);
+        return false;
+    }
 
-    wrap.format = VPI_IMAGE_FORMAT_NV12_ER;
-    wrap.width  = surface->surfaceList[0].width;
-    wrap.height = surface->surfaceList[0].height;
-
-    VPIStatus st = vpiImageCreateWrapper(&wrap, 0, &frame.nv12);
+    st = vpiImageCreateWrapper(&data, &params, VPI_BACKEND_CUDA | VPI_BACKEND_VIC, &frame.nv12);
     if (st != VPI_SUCCESS) {
         gst_buffer_unmap(buffer, &map);
         return false;

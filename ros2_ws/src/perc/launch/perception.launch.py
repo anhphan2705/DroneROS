@@ -33,9 +33,24 @@ def generate_launch_description():
         ]
     )
 
+    perception_gpu_node = launch_ros.actions.Node(
+        package='perc',
+        executable='perception_gpu_node',
+        name='perception_gpu_node',
+        output='screen',
+        parameters=[
+            {'sensor_id': 0},
+            {'width': 1920},
+            {'height': 1080},
+            {'fps': 60},
+        ]
+    )
+
+
     # ------------------------------------------------
     # Launch description
     # ------------------------------------------------
     return LaunchDescription([
-        camera_capture_node,
+        # camera_capture_node,
+        perception_gpu_node,
     ])

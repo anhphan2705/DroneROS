@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include "perc/camera/camera_capture.hpp"
+#include "perc/pipeline/stereo_pipeline.hpp"
 #include "perc/common/gpu_frame.hpp"
 
 class PerceptionGpuNode : public rclcpp::Node
@@ -18,6 +19,10 @@ public:
             throw std::runtime_error("Camera init failed");
         }
 
+        if (!pipeline_.init(width, height)) {
+            throw std::runtime_error("Pipeline init failed");
+        }
+
         worker_ = std::thread(&PerceptionGpuNode::loop, this);
     }
 
@@ -33,17 +38,35 @@ private:
         GpuFrame frame;
 
         while (rclcpp::ok() && running_) {
-            if (!camera_.grab(frame)) continue;
+            if (!camera_.grab(frame)) {
+                continue;
+            }
 
-            // 🔜 Rectifier(frame)
-            // 🔜 StereoDepth(frame)
-            // 🔜 Detector(frame)
+            if (!pipeline_.process(frame)) {
+                RCLCPP_WARN_THROTTLE(
+                    get_logger(),
+                    *get_clock(),
+                    2000,
+                    "Pipeline process failed");
+                releaseGpuFrame(frame);
+                continue;
+            }
 
-            // For now: just prove GPU capture works
+            RCLCPP_INFO_THROTTLE(
+                get_logger(),
+                *get_clock(),
+                2000,
+                "Frame grabbed and processed on GPU: %dx%d ts=%lu",
+                frame.width,
+                frame.height,
+                static_cast<unsigned long>(frame.timestamp_ns));
+
+            releaseGpuFrame(frame);
         }
     }
 
     CameraCapture camera_;
+    StereoPipeline pipeline_;
     std::thread worker_;
     std::atomic<bool> running_{true};
 };
