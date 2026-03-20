@@ -1,6 +1,9 @@
 #include "perc/pipeline/stereo_pipeline.hpp"
 
 #include <vpi/algo/ConvertImageFormat.h>
+#include <vpi/VPI.h>
+#include <vpi/Image.h>
+#include <vpi/ImageFormat.h>
 #include <vpi/Status.h>
 #include <cstdio>
 
@@ -39,6 +42,69 @@ static void printVPIError(const char *where, VPIStatus st)
                  where, vpiStatusGetName(st), st, msg);
 }
 
+// static void inspectVPIImage(VPIImage img, const char *name)
+// {
+//     VPIStatus st;
+
+//     int32_t w = 0, h = 0;
+//     VPIImageFormat fmt = 0;
+//     uint64_t flags = 0;
+
+//     st = vpiImageGetSize(img, &w, &h);
+//     if (st != VPI_SUCCESS) {
+//         printVPIError("vpiImageGetSize", st);
+//         return;
+//     }
+
+//     st = vpiImageGetFormat(img, &fmt);
+//     if (st != VPI_SUCCESS) {
+//         printVPIError("vpiImageGetFormat", st);
+//         return;
+//     }
+
+//     st = vpiImageGetFlags(img, &flags);
+//     if (st != VPI_SUCCESS) {
+//         printVPIError("vpiImageGetFlags", st);
+//         return;
+//     }
+
+//     std::fprintf(stderr,
+//                  "[%s] size=%dx%d format=0x%llx flags=0x%llx\n",
+//                  name, w, h,
+//                  static_cast<unsigned long long>(fmt),
+//                  static_cast<unsigned long long>(flags));
+// }
+
+// static void inspectBackingType(VPIImage img, const char *name)
+// {
+//     VPIImageData data{};
+//     VPIStatus st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_HOST_PITCH_LINEAR, &data);
+//     if (st == VPI_SUCCESS) {
+//         std::fprintf(stderr, "[%s] lock as HOST_PITCH_LINEAR succeeded, bufferType=%d\n",
+//                      name, data.bufferType);
+//         vpiImageUnlock(img);
+//         return;
+//     }
+
+//     st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
+//     if (st == VPI_SUCCESS) {
+//         std::fprintf(stderr, "[%s] lock as CUDA_PITCH_LINEAR succeeded, bufferType=%d\n",
+//                      name, data.bufferType);
+//         vpiImageUnlock(img);
+//         return;
+//     }
+
+//     st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_NVBUFFER, &data);
+//     if (st == VPI_SUCCESS) {
+//         std::fprintf(stderr, "[%s] lock as NVBUFFER succeeded, bufferType=%d fd=%d\n",
+//                      name, data.bufferType, data.buffer.fd);
+//         vpiImageUnlock(img);
+//         return;
+//     }
+
+//     printVPIError("vpiImageLockData", st);
+// }
+
 bool StereoPipeline::init(int width, int height)
 {
     width_ = width;
@@ -58,14 +124,18 @@ bool StereoPipeline::init(int width, int height)
     VPIStatus st = vpiImageCreate(
         width_,
         height_,
-        VPI_IMAGE_FORMAT_NV12_ER_BL,
+        VPI_IMAGE_FORMAT_NV12,
         VPI_BACKEND_CUDA,
-        &nv12_cuda_);
+        &nv12_cuda_
+    );
 
     if (st != VPI_SUCCESS) {
-        std::fprintf(stderr, "vpiImageCreate(nv12_cuda_) failed, status=%d\n", st);
+        printVPIError("vpiImageCreate(nv12_cuda_)", st);
         return false;
     }
+
+    // inspectVPIImage(nv12_cuda_, "nv12_cuda_");
+    // inspectBackingType(nv12_cuda_, "nv12_cuda_");
 
     roi_[0] = {0,       0,       half_w_, half_h_}; // TL
     roi_[1] = {half_w_, 0,       half_w_, half_h_}; // TR
@@ -122,10 +192,20 @@ bool StereoPipeline::process(const GpuFrame& frame)
         return false;
     }
 
+    // static bool printed_once = false;
+    // if (!printed_once) {
+    //     inspectVPIImage(frame.nv12, "frame.nv12");
+    //     inspectBackingType(frame.nv12, "frame.nv12");
+
+    //     inspectVPIImage(nv12_cuda_, "nv12_cuda_");
+    //     inspectBackingType(nv12_cuda_, "nv12_cuda_");
+
+    //     printed_once = true;
+    // }
+
     if (!updateCudaParent(frame)) {
         return false;
     }
 
-    // quad_[0..3] already point into nv12_cuda_
     return true;
 }

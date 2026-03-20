@@ -114,6 +114,21 @@ bool CameraCapture::importNvmmToVpi(GstBuffer *buffer, GpuFrame &frame)
     }
 
     surface = reinterpret_cast<NvBufSurface *>(map.data);
+
+    static bool printed_surface_once = false;
+    // if (!printed_surface_once) {
+    //     std::fprintf(stderr,
+    //         "NvBufSurface: width=%u height=%u pitch=%u colorFormat=%d layout=%d memType=%d fd=%ld\n",
+    //         surface->surfaceList[0].width,
+    //         surface->surfaceList[0].height,
+    //         surface->surfaceList[0].pitch,
+    //         surface->surfaceList[0].colorFormat,
+    //         surface->surfaceList[0].layout,
+    //         surface->memType,
+    //         surface->surfaceList[0].bufferDesc);
+    //     printed_surface_once = true;
+    // }
+
     if (!surface) {
         gst_buffer_unmap(buffer, &map);
         return false;
