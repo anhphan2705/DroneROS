@@ -28,11 +28,11 @@ private:
 
     VPIStream stream_{nullptr};
 
-    VPIImage nv12_cuda_{nullptr};
-    VPIImage quad_copy_{nullptr}; // keep for optional future debug
+    VPIImage nv12_parent_{nullptr};
+    VPIImage y_full_{nullptr};
 
+    VPIImage gray_view_[4] = {nullptr, nullptr, nullptr, nullptr};
     VPIImage quad_[4] = {nullptr, nullptr, nullptr, nullptr};
-    VPIImage gray_[4] = {nullptr, nullptr, nullptr, nullptr};
     VPIImage rect_[4] = {nullptr, nullptr, nullptr, nullptr};
 
     VPIRectangleI roi_[4]{};
@@ -41,13 +41,14 @@ private:
     VPIPayload remap_payload_[4] = {nullptr, nullptr, nullptr, nullptr};
 
     bool createQuadrantViews();
-    bool createGrayBuffers();
+    bool createParentBuffers();
+    bool createGrayViews();
     bool createRectBuffers();
     bool createWarpMaps(const DualStereoCalibration& calib);
     bool createRemapPayloads();
 
     bool updateCudaParent(const GpuFrame& frame);
-    bool convertQuadrantsToGray();
+    bool convertFullFrameToGray();
     bool rectifyQuadrants();
 
     void destroyViews();

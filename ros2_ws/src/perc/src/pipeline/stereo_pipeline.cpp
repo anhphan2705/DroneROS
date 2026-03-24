@@ -38,17 +38,17 @@ void StereoPipeline::destroyViews()
             q = nullptr;
         }
     }
-}
 
-void StereoPipeline::destroyImages()
-{
-    for (auto &g : gray_) {
+    for (auto &g : gray_view_) {
         if (g) {
             vpiImageDestroy(g);
             g = nullptr;
         }
     }
+}
 
+void StereoPipeline::destroyImages()
+{
     for (auto &r : rect_) {
         if (r) {
             vpiImageDestroy(r);
@@ -56,14 +56,14 @@ void StereoPipeline::destroyImages()
         }
     }
 
-    if (quad_copy_) {
-        vpiImageDestroy(quad_copy_);
-        quad_copy_ = nullptr;
+    if (y_full_) {
+        vpiImageDestroy(y_full_);
+        y_full_ = nullptr;
     }
 
-    if (nv12_cuda_) {
-        vpiImageDestroy(nv12_cuda_);
-        nv12_cuda_ = nullptr;
+    if (nv12_parent_) {
+        vpiImageDestroy(nv12_parent_);
+        nv12_parent_ = nullptr;
     }
 }
 
@@ -87,21 +87,32 @@ void StereoPipeline::destroyPayloads()
     }
 }
 
-bool StereoPipeline::createGrayBuffers()
+bool StereoPipeline::createParentBuffers()
 {
-    for (int i = 0; i < 4; ++i) {
-        VPIStatus st = vpiImageCreate(
-            half_w_,
-            half_h_,
-            VPI_IMAGE_FORMAT_Y8,
-            VPI_BACKEND_CUDA | VPI_BACKEND_VIC,
-            &gray_[i]);
+    VPIStatus st = vpiImageCreate(
+        width_,
+        height_,
+        VPI_IMAGE_FORMAT_NV12_ER,
+        VPI_BACKEND_CUDA,
+        &nv12_parent_);
 
-        if (st != VPI_SUCCESS) {
-            printVPIError("vpiImageCreate(gray_)", st);
-            return false;
-        }
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiImageCreate(nv12_parent_)", st);
+        return false;
     }
+
+    st = vpiImageCreate(
+        width_,
+        height_,
+        VPI_IMAGE_FORMAT_Y8_ER,
+        VPI_BACKEND_CUDA,
+        &y_full_);
+
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiImageCreate(y_full_)", st);
+        return false;
+    }
+
     return true;
 }
 
@@ -111,12 +122,25 @@ bool StereoPipeline::createRectBuffers()
         VPIStatus st = vpiImageCreate(
             half_w_,
             half_h_,
-            VPI_IMAGE_FORMAT_Y8,
+            VPI_IMAGE_FORMAT_Y8_ER,
             VPI_BACKEND_CUDA,
             &rect_[i]);
 
         if (st != VPI_SUCCESS) {
             printVPIError("vpiImageCreate(rect_)", st);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StereoPipeline::createGrayViews()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiImageCreateView(y_full_, &roi_[i], 0, &gray_view_[i]);
+        if (st != VPI_SUCCESS) {
+            std::fprintf(stderr, "gray view %d: ", i);
+            printVPIError("vpiImageCreateView(y_full_)", st);
             return false;
         }
     }
@@ -213,33 +237,15 @@ bool StereoPipeline::init(int width, int height, const DualStereoCalibration& ca
     std::fprintf(stderr, "Frame Size %dx%d\n", half_w_, half_h_);
     std::fflush(stderr);
 
-    VPIStatus st = vpiStreamCreate(VPI_BACKEND_CUDA | VPI_BACKEND_VIC, &stream_);
+    VPIStatus st = vpiStreamCreate(VPI_BACKEND_CUDA, &stream_);
     if (st != VPI_SUCCESS) {
         printVPIError("vpiStreamCreate", st);
         return false;
     }
 
-    st = vpiImageCreate(
-        width_,
-        height_,
-        VPI_IMAGE_FORMAT_NV12,
-        VPI_BACKEND_CUDA,
-        &nv12_cuda_);
-    if (st != VPI_SUCCESS) {
-        printVPIError("vpiImageCreate(nv12_cuda_)", st);
-        return false;
-    }
-
-    st = vpiImageCreate(
-        half_w_,
-        half_h_,
-        VPI_IMAGE_FORMAT_NV12,
-        VPI_BACKEND_CUDA,
-        &quad_copy_);
-    if (st != VPI_SUCCESS) {
-        printVPIError("vpiImageCreate(quad_copy_)", st);
-        return false;
-    }
+    std::fprintf(stderr, "[StereoPipeline::init] createParentBuffers\n");
+    std::fflush(stderr);
+    if (!createParentBuffers()) return false;
 
     roi_[0] = {0,       0,       half_w_, half_h_};
     roi_[1] = {half_w_, 0,       half_w_, half_h_};
@@ -250,21 +256,13 @@ bool StereoPipeline::init(int width, int height, const DualStereoCalibration& ca
     std::fflush(stderr);
     if (!createQuadrantViews()) return false;
 
-    std::fprintf(stderr, "[StereoPipeline::init] createGrayBuffers\n");
+    std::fprintf(stderr, "[StereoPipeline::init] createGrayViews\n");
     std::fflush(stderr);
-    if (!createGrayBuffers()) return false;
+    if (!createGrayViews()) return false;
 
     std::fprintf(stderr, "[StereoPipeline::init] createRectBuffers\n");
     std::fflush(stderr);
     if (!createRectBuffers()) return false;
-
-    std::fprintf(stderr, "[StereoPipeline::init] createWarpMaps\n");
-    std::fflush(stderr);
-    if (!createWarpMaps(calib)) return false;
-
-    std::fprintf(stderr, "[StereoPipeline::init] createRemapPayloads\n");
-    std::fflush(stderr);
-    if (!createRemapPayloads()) return false;
 
     std::fprintf(stderr, "[StereoPipeline::init] DONE\n");
     std::fflush(stderr);
@@ -275,7 +273,7 @@ bool StereoPipeline::init(int width, int height, const DualStereoCalibration& ca
 bool StereoPipeline::createQuadrantViews()
 {
     for (int i = 0; i < 4; ++i) {
-        VPIStatus st = vpiImageCreateView(nv12_cuda_, &roi_[i], 0, &quad_[i]);
+        VPIStatus st = vpiImageCreateView(nv12_parent_, &roi_[i], 0, &quad_[i]);
         if (st != VPI_SUCCESS) {
             std::fprintf(stderr, "quad %d: ", i);
             printVPIError("vpiImageCreateView", st);
@@ -291,7 +289,7 @@ bool StereoPipeline::updateCudaParent(const GpuFrame& frame)
         stream_,
         VPI_BACKEND_CUDA,
         frame.nv12,
-        nv12_cuda_,
+        nv12_parent_,
         nullptr);
 
     if (st != VPI_SUCCESS) {
@@ -308,25 +306,26 @@ bool StereoPipeline::updateCudaParent(const GpuFrame& frame)
     return true;
 }
 
-bool StereoPipeline::convertQuadrantsToGray()
+bool StereoPipeline::convertFullFrameToGray()
 {
-    for (int i = 0; i < 4; ++i) {
-        VPIStatus st = vpiSubmitConvertImageFormat(
-            stream_,
-            VPI_BACKEND_CUDA,
-            quad_[i],
-            gray_[i],
-            nullptr);
+    std::fprintf(stderr, "[convertFullFrameToGray] nv12_parent_ -> y_full_\n");
+    std::fflush(stderr);
 
-        if (st != VPI_SUCCESS) {
-            printVPIError("vpiSubmitConvertImageFormat(quad->gray)", st);
-            return false;
-        }
+    VPIStatus st = vpiSubmitConvertImageFormat(
+        stream_,
+        VPI_BACKEND_CUDA,
+        nv12_parent_,
+        y_full_,
+        nullptr);
+
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiSubmitConvertImageFormat(nv12_parent_->y_full_)", st);
+        return false;
     }
 
-    VPIStatus st = vpiStreamSync(stream_);
+    st = vpiStreamSync(stream_);
     if (st != VPI_SUCCESS) {
-        printVPIError("vpiStreamSync(convertQuadrantsToGray)", st);
+        printVPIError("vpiStreamSync(convertFullFrameToGray)", st);
         return false;
     }
 
@@ -340,7 +339,7 @@ bool StereoPipeline::rectifyQuadrants()
             stream_,
             VPI_BACKEND_CUDA,
             remap_payload_[i],
-            gray_[i],
+            gray_view_[i],
             rect_[i],
             VPI_INTERP_LINEAR,
             VPI_BORDER_ZERO,
@@ -371,9 +370,9 @@ bool StereoPipeline::process(const GpuFrame& frame)
     std::fflush(stderr);
     if (!updateCudaParent(frame)) return false;
 
-    std::fprintf(stderr, "[StereoPipeline::process] convertQuadrantsToGray\n");
+    std::fprintf(stderr, "[StereoPipeline::process] convertFullFrameToGray\n");
     std::fflush(stderr);
-    if (!convertQuadrantsToGray()) return false;
+    if (!convertFullFrameToGray()) return false;
 
     std::fprintf(stderr, "[StereoPipeline::process] rectifyQuadrants\n");
     std::fflush(stderr);

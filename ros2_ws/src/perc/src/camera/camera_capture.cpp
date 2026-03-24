@@ -48,7 +48,7 @@ bool CameraCapture::initGStreamer()
         "nvarguscamerasrc sensor-id=" + std::to_string(sensor_id_) + " ! "
         "video/x-raw(memory:NVMM),width=" + std::to_string(width_) +
         ",height=" + std::to_string(height_) +
-        ",framerate=" + std::to_string(fps_) + "/1,format=NV12 ! "
+        ",framerate=" + std::to_string(fps_) + "/1,format=NV12_ER ! "
         "appsink name=nvmm_sink max-buffers=1 drop=true sync=false";
 
     pipeline_ = gst_parse_launch(pipeline_str.c_str(), nullptr);
