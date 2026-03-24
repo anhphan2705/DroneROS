@@ -5,6 +5,21 @@ import launch_ros.actions
 from ament_index_python.packages import get_package_share_directory
 import os
 
+calib_pkg_share = get_package_share_directory('perc')
+
+calib_file_0 = os.path.join(
+    calib_pkg_share,
+    'calibration',
+    'calibrated_params',
+    'stereo_calibration_params_pair_0_2026-01-18_22-56-19.yml'
+)
+
+calib_file_1 = os.path.join(
+    calib_pkg_share,
+    'calibration',
+    'calibrated_params',
+    'stereo_calibration_params_pair_1_2026-01-18_22-57-06.yml'
+)
 
 def generate_launch_description():
     perc_share = get_package_share_directory('perc')
@@ -43,6 +58,8 @@ def generate_launch_description():
             {'width': 1920},
             {'height': 1080},
             {'fps': 60},
+            {'calibration_file_0': calib_file_0},
+            {'calibration_file_1': calib_file_1},
         ]
     )
 

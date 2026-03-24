@@ -47,6 +47,7 @@ add_executable(perception_gpu_node
   src/perception_gpu_node.cpp
   src/camera/camera_capture.cpp
   src/pipeline/stereo_pipeline.cpp
+  src/calibration/calibration_loader.cpp
 )
 
 target_link_libraries(perception_gpu_node
@@ -81,6 +82,10 @@ install(TARGETS
 )
 install(
   DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+install(
+  DIRECTORY calibration
   DESTINATION share/${PROJECT_NAME}
 )
 

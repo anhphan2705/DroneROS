@@ -1,8 +1,10 @@
 #include <rclcpp/rclcpp.hpp>
+#include <filesystem>
 
 #include "perc/camera/camera_capture.hpp"
 #include "perc/pipeline/stereo_pipeline.hpp"
 #include "perc/common/gpu_frame.hpp"
+#include "perc/calibration/calibration_loader.hpp"
 
 class PerceptionGpuNode : public rclcpp::Node
 {
@@ -14,12 +16,25 @@ public:
         int width  = declare_parameter("width", 1920);
         int height = declare_parameter("height", 1080);
         int fps    = declare_parameter("fps", 60);
+        std::string calib0 = declare_parameter<std::string>("calibration_file_0", "");
+        std::string calib1 = declare_parameter<std::string>("calibration_file_1", "");
+
+        if (!std::filesystem::exists(calib0) || !std::filesystem::exists(calib1)) {
+            throw std::runtime_error("Calibration files not found");
+        }
+
+        RCLCPP_INFO(get_logger(), "Using calibration files: %s, %s", calib0.c_str(), calib1.c_str());
+
+        DualStereoCalibration calib;
+        if (!CalibrationLoader::loadDualStereo(calib0, calib1, calib)) {
+            throw std::runtime_error("Failed to load calibration files");
+        }
 
         if (!camera_.init(sensor, width, height, fps)) {
             throw std::runtime_error("Camera init failed");
         }
 
-        if (!pipeline_.init(width, height)) {
+        if (!pipeline_.init(width, height, calib)) {
             throw std::runtime_error("Pipeline init failed");
         }
 

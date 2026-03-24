@@ -1,22 +1,28 @@
 #include "perc/pipeline/stereo_pipeline.hpp"
 
 #include <vpi/algo/ConvertImageFormat.h>
-#include <vpi/VPI.h>
-#include <vpi/Image.h>
-#include <vpi/ImageFormat.h>
+#include <vpi/algo/Remap.h>
 #include <vpi/Status.h>
+
 #include <cstdio>
+#include <cstring>
 
 StereoPipeline::StereoPipeline() = default;
+
+static void printVPIError(const char *where, VPIStatus st)
+{
+    char msg[VPI_MAX_STATUS_MESSAGE_LENGTH] = {};
+    vpiPeekAtLastStatusMessage(msg, sizeof(msg));
+    std::fprintf(stderr, "%s failed: %s (%d): %s\n",
+                 where, vpiStatusGetName(st), st, msg);
+}
 
 StereoPipeline::~StereoPipeline()
 {
     destroyViews();
-
-    if (nv12_cuda_) {
-        vpiImageDestroy(nv12_cuda_);
-        nv12_cuda_ = nullptr;
-    }
+    destroyPayloads();
+    destroyWarpMaps();
+    destroyImages();
 
     if (stream_) {
         vpiStreamDestroy(stream_);
@@ -34,78 +40,169 @@ void StereoPipeline::destroyViews()
     }
 }
 
-static void printVPIError(const char *where, VPIStatus st)
+void StereoPipeline::destroyImages()
 {
-    char msg[VPI_MAX_STATUS_MESSAGE_LENGTH] = {};
-    vpiPeekAtLastStatusMessage(msg, sizeof(msg));
-    std::fprintf(stderr, "%s failed: %s (%d): %s\n",
-                 where, vpiStatusGetName(st), st, msg);
+    for (auto &g : gray_) {
+        if (g) {
+            vpiImageDestroy(g);
+            g = nullptr;
+        }
+    }
+
+    for (auto &r : rect_) {
+        if (r) {
+            vpiImageDestroy(r);
+            r = nullptr;
+        }
+    }
+
+    if (quad_copy_) {
+        vpiImageDestroy(quad_copy_);
+        quad_copy_ = nullptr;
+    }
+
+    if (nv12_cuda_) {
+        vpiImageDestroy(nv12_cuda_);
+        nv12_cuda_ = nullptr;
+    }
 }
 
-// static void inspectVPIImage(VPIImage img, const char *name)
-// {
-//     VPIStatus st;
+void StereoPipeline::destroyWarpMaps()
+{
+    for (auto &w : warp_) {
+        if (w.keypoints) {
+            vpiWarpMapFreeData(&w);
+        }
+        std::memset(&w, 0, sizeof(w));
+    }
+}
 
-//     int32_t w = 0, h = 0;
-//     VPIImageFormat fmt = 0;
-//     uint64_t flags = 0;
+void StereoPipeline::destroyPayloads()
+{
+    for (auto &p : remap_payload_) {
+        if (p) {
+            vpiPayloadDestroy(p);
+            p = nullptr;
+        }
+    }
+}
 
-//     st = vpiImageGetSize(img, &w, &h);
-//     if (st != VPI_SUCCESS) {
-//         printVPIError("vpiImageGetSize", st);
-//         return;
-//     }
+bool StereoPipeline::createGrayBuffers()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiImageCreate(
+            half_w_,
+            half_h_,
+            VPI_IMAGE_FORMAT_Y8,
+            VPI_BACKEND_CUDA | VPI_BACKEND_VIC,
+            &gray_[i]);
 
-//     st = vpiImageGetFormat(img, &fmt);
-//     if (st != VPI_SUCCESS) {
-//         printVPIError("vpiImageGetFormat", st);
-//         return;
-//     }
+        if (st != VPI_SUCCESS) {
+            printVPIError("vpiImageCreate(gray_)", st);
+            return false;
+        }
+    }
+    return true;
+}
 
-//     st = vpiImageGetFlags(img, &flags);
-//     if (st != VPI_SUCCESS) {
-//         printVPIError("vpiImageGetFlags", st);
-//         return;
-//     }
+bool StereoPipeline::createRectBuffers()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiImageCreate(
+            half_w_,
+            half_h_,
+            VPI_IMAGE_FORMAT_Y8,
+            VPI_BACKEND_CUDA,
+            &rect_[i]);
 
-//     std::fprintf(stderr,
-//                  "[%s] size=%dx%d format=0x%llx flags=0x%llx\n",
-//                  name, w, h,
-//                  static_cast<unsigned long long>(fmt),
-//                  static_cast<unsigned long long>(flags));
-// }
+        if (st != VPI_SUCCESS) {
+            printVPIError("vpiImageCreate(rect_)", st);
+            return false;
+        }
+    }
+    return true;
+}
 
-// static void inspectBackingType(VPIImage img, const char *name)
-// {
-//     VPIImageData data{};
-//     VPIStatus st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_HOST_PITCH_LINEAR, &data);
-//     if (st == VPI_SUCCESS) {
-//         std::fprintf(stderr, "[%s] lock as HOST_PITCH_LINEAR succeeded, bufferType=%d\n",
-//                      name, data.bufferType);
-//         vpiImageUnlock(img);
-//         return;
-//     }
+static bool fillWarpFromMaps(const cv::Mat& map_x,
+                             const cv::Mat& map_y,
+                             VPIWarpMap& warp)
+{
+    if (map_x.empty() || map_y.empty()) {
+        return false;
+    }
+    if (map_x.rows != map_y.rows || map_x.cols != map_y.cols) {
+        return false;
+    }
 
-//     st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
-//     if (st == VPI_SUCCESS) {
-//         std::fprintf(stderr, "[%s] lock as CUDA_PITCH_LINEAR succeeded, bufferType=%d\n",
-//                      name, data.bufferType);
-//         vpiImageUnlock(img);
-//         return;
-//     }
+    std::fprintf(stderr, "Map dimensions: %dx%d\n", map_x.cols, map_x.rows);
+    std::fflush(stderr);
 
-//     st = vpiImageLockData(img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_NVBUFFER, &data);
-//     if (st == VPI_SUCCESS) {
-//         std::fprintf(stderr, "[%s] lock as NVBUFFER succeeded, bufferType=%d fd=%d\n",
-//                      name, data.bufferType, data.buffer.fd);
-//         vpiImageUnlock(img);
-//         return;
-//     }
+    std::fprintf(stderr, "map x type: %d, map y type: %d\n ", map_x.type(), map_y.type());
+    std::fflush(stderr);
 
-//     printVPIError("vpiImageLockData", st);
-// }
+    std::memset(&warp, 0, sizeof(warp));
+    warp.grid.numHorizRegions = 1;
+    warp.grid.numVertRegions  = 1;
+    warp.grid.regionWidth[0]  = static_cast<int16_t>(map_x.cols);
+    warp.grid.regionHeight[0] = static_cast<int16_t>(map_x.rows);
+    warp.grid.horizInterval[0] = 1;
+    warp.grid.vertInterval[0]  = 1;
 
-bool StereoPipeline::init(int width, int height)
+    VPIStatus st = vpiWarpMapAllocData(&warp);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiWarpMapAllocData", st);
+        return false;
+    }
+
+    std::fprintf(stderr, "Allocated warp map data horiz=%d vert=%d pitch=%d\n",
+                warp.numHorizPoints, warp.numVertPoints, warp.pitchBytes);
+    std::fflush(stderr);
+
+    // Initialize padded control points safely
+    st = vpiWarpMapGenerateIdentity(&warp);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiWarpMapGenerateIdentity", st);
+        return false;
+    }
+
+    std::fprintf(stderr, "Filling warp map data\n");
+    std::fflush(stderr);
+
+    // Only fill the overlapping valid region from calibration maps
+    for (int y = 0; y < map_x.rows; ++y) {
+        auto *row = reinterpret_cast<VPIKeypointF32*>(
+            reinterpret_cast<uint8_t*>(warp.keypoints) + y * warp.pitchBytes);
+
+        for (int x = 0; x < map_x.cols; ++x) {
+            row[x].x = map_x.at<float>(y, x);
+            row[x].y = map_y.at<float>(y, x);
+        }
+    }
+
+    return true;
+}
+
+bool StereoPipeline::createWarpMaps(const DualStereoCalibration& calib)
+{
+    return fillWarpFromMaps(calib.pair0.left_map_x,  calib.pair0.left_map_y,  warp_[0]) &&
+           fillWarpFromMaps(calib.pair0.right_map_x, calib.pair0.right_map_y, warp_[1]) &&
+           fillWarpFromMaps(calib.pair1.left_map_x,  calib.pair1.left_map_y,  warp_[2]) &&
+           fillWarpFromMaps(calib.pair1.right_map_x, calib.pair1.right_map_y, warp_[3]);
+}
+
+bool StereoPipeline::createRemapPayloads()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiCreateRemap(VPI_BACKEND_CUDA, &warp_[i], &remap_payload_[i]);
+        if (st != VPI_SUCCESS) {
+            printVPIError("vpiCreateRemap", st);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StereoPipeline::init(int width, int height, const DualStereoCalibration& calib)
 {
     width_ = width;
     height_ = height;
@@ -113,38 +210,64 @@ bool StereoPipeline::init(int width, int height)
     half_w_ = (width_ / 2) & ~1;
     half_h_ = (height_ / 2) & ~1;
 
-    if (vpiStreamCreate(VPI_BACKEND_CUDA, &stream_) != VPI_SUCCESS) {
-        std::fprintf(stderr, "vpiStreamCreate failed\n");
+    std::fprintf(stderr, "Frame Size %dx%d\n", half_w_, half_h_);
+    std::fflush(stderr);
+
+    VPIStatus st = vpiStreamCreate(VPI_BACKEND_CUDA | VPI_BACKEND_VIC, &stream_);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiStreamCreate", st);
         return false;
     }
 
-    // Create a CUDA-view-compatible NV12 image.
-    // Views on Tegra require parent image to wrap CPU/CUDA buffer
-    // or have only CPU/CUDA backends enabled.
-    VPIStatus st = vpiImageCreate(
+    st = vpiImageCreate(
         width_,
         height_,
         VPI_IMAGE_FORMAT_NV12,
         VPI_BACKEND_CUDA,
-        &nv12_cuda_
-    );
-
+        &nv12_cuda_);
     if (st != VPI_SUCCESS) {
         printVPIError("vpiImageCreate(nv12_cuda_)", st);
         return false;
     }
 
-    // inspectVPIImage(nv12_cuda_, "nv12_cuda_");
-    // inspectBackingType(nv12_cuda_, "nv12_cuda_");
-
-    roi_[0] = {0,       0,       half_w_, half_h_}; // TL
-    roi_[1] = {half_w_, 0,       half_w_, half_h_}; // TR
-    roi_[2] = {0,       half_h_, half_w_, half_h_}; // BL
-    roi_[3] = {half_w_, half_h_, half_w_, half_h_}; // BR
-
-    if (!createQuadrantViews()) {
+    st = vpiImageCreate(
+        half_w_,
+        half_h_,
+        VPI_IMAGE_FORMAT_NV12,
+        VPI_BACKEND_CUDA,
+        &quad_copy_);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiImageCreate(quad_copy_)", st);
         return false;
     }
+
+    roi_[0] = {0,       0,       half_w_, half_h_};
+    roi_[1] = {half_w_, 0,       half_w_, half_h_};
+    roi_[2] = {0,       half_h_, half_w_, half_h_};
+    roi_[3] = {half_w_, half_h_, half_w_, half_h_};
+
+    std::fprintf(stderr, "[StereoPipeline::init] createQuadrantViews\n");
+    std::fflush(stderr);
+    if (!createQuadrantViews()) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] createGrayBuffers\n");
+    std::fflush(stderr);
+    if (!createGrayBuffers()) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] createRectBuffers\n");
+    std::fflush(stderr);
+    if (!createRectBuffers()) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] createWarpMaps\n");
+    std::fflush(stderr);
+    if (!createWarpMaps(calib)) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] createRemapPayloads\n");
+    std::fflush(stderr);
+    if (!createRemapPayloads()) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] DONE\n");
+    std::fflush(stderr);
 
     return true;
 }
@@ -164,7 +287,6 @@ bool StereoPipeline::createQuadrantViews()
 
 bool StereoPipeline::updateCudaParent(const GpuFrame& frame)
 {
-    // Copy/convert wrapped NVBUFFER NV12 into CUDA-only NV12 parent.
     VPIStatus st = vpiSubmitConvertImageFormat(
         stream_,
         VPI_BACKEND_CUDA,
@@ -173,13 +295,66 @@ bool StereoPipeline::updateCudaParent(const GpuFrame& frame)
         nullptr);
 
     if (st != VPI_SUCCESS) {
-        printVPIError("vpiSubmitConvertImageFormat", st);
+        printVPIError("vpiSubmitConvertImageFormat(frame->nv12_cuda_)", st);
         return false;
     }
 
     st = vpiStreamSync(stream_);
     if (st != VPI_SUCCESS) {
-        printVPIError("vpiStreamSync", st);
+        printVPIError("vpiStreamSync(updateCudaParent)", st);
+        return false;
+    }
+
+    return true;
+}
+
+bool StereoPipeline::convertQuadrantsToGray()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiSubmitConvertImageFormat(
+            stream_,
+            VPI_BACKEND_CUDA,
+            quad_[i],
+            gray_[i],
+            nullptr);
+
+        if (st != VPI_SUCCESS) {
+            printVPIError("vpiSubmitConvertImageFormat(quad->gray)", st);
+            return false;
+        }
+    }
+
+    VPIStatus st = vpiStreamSync(stream_);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiStreamSync(convertQuadrantsToGray)", st);
+        return false;
+    }
+
+    return true;
+}
+
+bool StereoPipeline::rectifyQuadrants()
+{
+    for (int i = 0; i < 4; ++i) {
+        VPIStatus st = vpiSubmitRemap(
+            stream_,
+            VPI_BACKEND_CUDA,
+            remap_payload_[i],
+            gray_[i],
+            rect_[i],
+            VPI_INTERP_LINEAR,
+            VPI_BORDER_ZERO,
+            0);
+
+        if (st != VPI_SUCCESS) {
+            printVPIError("vpiSubmitRemap", st);
+            return false;
+        }
+    }
+
+    VPIStatus st = vpiStreamSync(stream_);
+    if (st != VPI_SUCCESS) {
+        printVPIError("vpiStreamSync(rectifyQuadrants)", st);
         return false;
     }
 
@@ -192,20 +367,21 @@ bool StereoPipeline::process(const GpuFrame& frame)
         return false;
     }
 
-    // static bool printed_once = false;
-    // if (!printed_once) {
-    //     inspectVPIImage(frame.nv12, "frame.nv12");
-    //     inspectBackingType(frame.nv12, "frame.nv12");
+    std::fprintf(stderr, "[StereoPipeline::process] updateCudaParent\n");
+    std::fflush(stderr);
+    if (!updateCudaParent(frame)) return false;
 
-    //     inspectVPIImage(nv12_cuda_, "nv12_cuda_");
-    //     inspectBackingType(nv12_cuda_, "nv12_cuda_");
+    std::fprintf(stderr, "[StereoPipeline::process] convertQuadrantsToGray\n");
+    std::fflush(stderr);
+    if (!convertQuadrantsToGray()) return false;
 
-    //     printed_once = true;
-    // }
+    std::fprintf(stderr, "[StereoPipeline::process] rectifyQuadrants\n");
+    std::fflush(stderr);
+    if (!rectifyQuadrants()) return false;
 
-    if (!updateCudaParent(frame)) {
-        return false;
-    }
+    std::fprintf(stderr, "[StereoPipeline::process] done\n");
+    std::fflush(stderr);
+    return true;
 
     return true;
 }
