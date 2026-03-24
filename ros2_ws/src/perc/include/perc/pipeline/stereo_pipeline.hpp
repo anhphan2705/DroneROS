@@ -30,9 +30,6 @@ private:
 
     VPIImage nv12_parent_{nullptr};
     VPIImage y_full_{nullptr};
-
-    VPIImage gray_view_[4] = {nullptr, nullptr, nullptr, nullptr};
-    VPIImage quad_[4] = {nullptr, nullptr, nullptr, nullptr};
     VPIImage rect_[4] = {nullptr, nullptr, nullptr, nullptr};
 
     VPIRectangleI roi_[4]{};
@@ -40,9 +37,7 @@ private:
     VPIWarpMap warp_[4]{};
     VPIPayload remap_payload_[4] = {nullptr, nullptr, nullptr, nullptr};
 
-    bool createQuadrantViews();
     bool createParentBuffers();
-    bool createGrayViews();
     bool createRectBuffers();
     bool createWarpMaps(const DualStereoCalibration& calib);
     bool createRemapPayloads();

@@ -32,19 +32,6 @@ StereoPipeline::~StereoPipeline()
 
 void StereoPipeline::destroyViews()
 {
-    for (auto &q : quad_) {
-        if (q) {
-            vpiImageDestroy(q);
-            q = nullptr;
-        }
-    }
-
-    for (auto &g : gray_view_) {
-        if (g) {
-            vpiImageDestroy(g);
-            g = nullptr;
-        }
-    }
 }
 
 void StereoPipeline::destroyImages()
@@ -92,8 +79,8 @@ bool StereoPipeline::createParentBuffers()
     VPIStatus st = vpiImageCreate(
         width_,
         height_,
-        VPI_IMAGE_FORMAT_NV12_ER,
-        VPI_BACKEND_CUDA,
+        VPI_IMAGE_FORMAT_NV12,
+        VPI_BACKEND_VIC | VPI_BACKEND_CUDA,
         &nv12_parent_);
 
     if (st != VPI_SUCCESS) {
@@ -104,8 +91,8 @@ bool StereoPipeline::createParentBuffers()
     st = vpiImageCreate(
         width_,
         height_,
-        VPI_IMAGE_FORMAT_Y8_ER,
-        VPI_BACKEND_CUDA,
+        VPI_IMAGE_FORMAT_Y8,
+        VPI_BACKEND_VIC | VPI_BACKEND_CUDA,
         &y_full_);
 
     if (st != VPI_SUCCESS) {
@@ -122,7 +109,7 @@ bool StereoPipeline::createRectBuffers()
         VPIStatus st = vpiImageCreate(
             half_w_,
             half_h_,
-            VPI_IMAGE_FORMAT_Y8_ER,
+            VPI_IMAGE_FORMAT_Y8,
             VPI_BACKEND_CUDA,
             &rect_[i]);
 
@@ -134,22 +121,11 @@ bool StereoPipeline::createRectBuffers()
     return true;
 }
 
-bool StereoPipeline::createGrayViews()
-{
-    for (int i = 0; i < 4; ++i) {
-        VPIStatus st = vpiImageCreateView(y_full_, &roi_[i], 0, &gray_view_[i]);
-        if (st != VPI_SUCCESS) {
-            std::fprintf(stderr, "gray view %d: ", i);
-            printVPIError("vpiImageCreateView(y_full_)", st);
-            return false;
-        }
-    }
-    return true;
-}
-
 static bool fillWarpFromMaps(const cv::Mat& map_x,
                              const cv::Mat& map_y,
-                             VPIWarpMap& warp)
+                             VPIWarpMap& warp,
+                             float x_offset,
+                             float y_offset)
 {
     if (map_x.empty() || map_y.empty()) {
         return false;
@@ -198,8 +174,8 @@ static bool fillWarpFromMaps(const cv::Mat& map_x,
             reinterpret_cast<uint8_t*>(warp.keypoints) + y * warp.pitchBytes);
 
         for (int x = 0; x < map_x.cols; ++x) {
-            row[x].x = map_x.at<float>(y, x);
-            row[x].y = map_y.at<float>(y, x);
+            row[x].x = map_x.at<float>(y, x) + x_offset;
+            row[x].y = map_y.at<float>(y, x) + y_offset;
         }
     }
 
@@ -208,10 +184,10 @@ static bool fillWarpFromMaps(const cv::Mat& map_x,
 
 bool StereoPipeline::createWarpMaps(const DualStereoCalibration& calib)
 {
-    return fillWarpFromMaps(calib.pair0.left_map_x,  calib.pair0.left_map_y,  warp_[0]) &&
-           fillWarpFromMaps(calib.pair0.right_map_x, calib.pair0.right_map_y, warp_[1]) &&
-           fillWarpFromMaps(calib.pair1.left_map_x,  calib.pair1.left_map_y,  warp_[2]) &&
-           fillWarpFromMaps(calib.pair1.right_map_x, calib.pair1.right_map_y, warp_[3]);
+    return fillWarpFromMaps(calib.pair0.left_map_x,  calib.pair0.left_map_y,  warp_[0], 0.0f,           0.0f) &&
+           fillWarpFromMaps(calib.pair0.right_map_x, calib.pair0.right_map_y, warp_[1], float(half_w_),  0.0f) &&
+           fillWarpFromMaps(calib.pair1.left_map_x,  calib.pair1.left_map_y,  warp_[2], 0.0f,           float(half_h_)) &&
+           fillWarpFromMaps(calib.pair1.right_map_x, calib.pair1.right_map_y, warp_[3], float(half_w_), float(half_h_));
 }
 
 bool StereoPipeline::createRemapPayloads()
@@ -234,10 +210,10 @@ bool StereoPipeline::init(int width, int height, const DualStereoCalibration& ca
     half_w_ = (width_ / 2) & ~1;
     half_h_ = (height_ / 2) & ~1;
 
-    std::fprintf(stderr, "Frame Size %dx%d\n", half_w_, half_h_);
+    std::fprintf(stderr, "Frame Size %dx%d, Quadrant Size %dx%d\n", width_, height_, half_w_, half_h_);
     std::fflush(stderr);
 
-    VPIStatus st = vpiStreamCreate(VPI_BACKEND_CUDA, &stream_);
+    VPIStatus st = vpiStreamCreate(VPI_BACKEND_CUDA | VPI_BACKEND_VIC, &stream_);
     if (st != VPI_SUCCESS) {
         printVPIError("vpiStreamCreate", st);
         return false;
@@ -252,34 +228,21 @@ bool StereoPipeline::init(int width, int height, const DualStereoCalibration& ca
     roi_[2] = {0,       half_h_, half_w_, half_h_};
     roi_[3] = {half_w_, half_h_, half_w_, half_h_};
 
-    std::fprintf(stderr, "[StereoPipeline::init] createQuadrantViews\n");
-    std::fflush(stderr);
-    if (!createQuadrantViews()) return false;
-
-    std::fprintf(stderr, "[StereoPipeline::init] createGrayViews\n");
-    std::fflush(stderr);
-    if (!createGrayViews()) return false;
-
     std::fprintf(stderr, "[StereoPipeline::init] createRectBuffers\n");
     std::fflush(stderr);
     if (!createRectBuffers()) return false;
 
+    std::fprintf(stderr, "[StereoPipeline::init] createWarpMaps\n");
+    std::fflush(stderr);
+    if (!createWarpMaps(calib)) return false;
+
+    std::fprintf(stderr, "[StereoPipeline::init] createRemapPayloads\n");
+    std::fflush(stderr);
+    if (!createRemapPayloads()) return false;
+
     std::fprintf(stderr, "[StereoPipeline::init] DONE\n");
     std::fflush(stderr);
 
-    return true;
-}
-
-bool StereoPipeline::createQuadrantViews()
-{
-    for (int i = 0; i < 4; ++i) {
-        VPIStatus st = vpiImageCreateView(nv12_parent_, &roi_[i], 0, &quad_[i]);
-        if (st != VPI_SUCCESS) {
-            std::fprintf(stderr, "quad %d: ", i);
-            printVPIError("vpiImageCreateView", st);
-            return false;
-        }
-    }
     return true;
 }
 
@@ -313,7 +276,7 @@ bool StereoPipeline::convertFullFrameToGray()
 
     VPIStatus st = vpiSubmitConvertImageFormat(
         stream_,
-        VPI_BACKEND_CUDA,
+        VPI_BACKEND_VIC,
         nv12_parent_,
         y_full_,
         nullptr);
@@ -339,7 +302,7 @@ bool StereoPipeline::rectifyQuadrants()
             stream_,
             VPI_BACKEND_CUDA,
             remap_payload_[i],
-            gray_view_[i],
+            y_full_,
             rect_[i],
             VPI_INTERP_LINEAR,
             VPI_BORDER_ZERO,
@@ -380,7 +343,5 @@ bool StereoPipeline::process(const GpuFrame& frame)
 
     std::fprintf(stderr, "[StereoPipeline::process] done\n");
     std::fflush(stderr);
-    return true;
-
     return true;
 }
